@@ -2,6 +2,8 @@ package chrome
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"strings"
@@ -59,6 +61,13 @@ func ListenURL(ctx context.Context, url string, method string, download bool) <-
 }
 
 func ListenScript(ctx context.Context, script, url, method, variable string, result any) error {
+	if variable == "" {
+		b := make([]byte, 8)
+		rand.Read(b)
+		variable = hex.EncodeToString(b)
+	}
+	variable = "chrome" + variable
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
