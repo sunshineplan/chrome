@@ -7,11 +7,7 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-var (
-	Headful = New().
-		AddFlags(chromedp.Flag("headless", false)).
-		AddActions(addScriptToEvaluateOnNewDocument("Object.defineProperty(navigator,'webdriver',{get:()=>false})"))
-)
+var NotWebDriver = addScriptToEvaluateOnNewDocument("Object.defineProperty(navigator,'webdriver',{get:()=>false})")
 
 type Chrome struct {
 	flags   []chromedp.ExecAllocatorOption
@@ -19,7 +15,22 @@ type Chrome struct {
 }
 
 func New() *Chrome {
-	return &Chrome{}
+	return new(Chrome)
+}
+
+func Headless(webdriver bool) *Chrome {
+	if webdriver {
+		return New()
+	}
+	return New().AddActions(NotWebDriver)
+}
+
+func Headful(webdriver bool) *Chrome {
+	chrome := New().AddFlags(chromedp.Flag("headless", false))
+	if webdriver {
+		return chrome
+	}
+	return chrome.AddActions(NotWebDriver)
 }
 
 func (c *Chrome) AddFlags(flags ...chromedp.ExecAllocatorOption) *Chrome {
