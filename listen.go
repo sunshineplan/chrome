@@ -32,7 +32,7 @@ func ListenEvent(ctx context.Context, url string, method string, download bool) 
 			}
 		case *network.EventLoadingFinished:
 			if v, ok := m.Load(ev.RequestID); ok {
-				done <- v.(Event)
+				go func() { done <- v.(Event) }()
 			}
 		}
 	})
