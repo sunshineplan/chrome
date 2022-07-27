@@ -14,9 +14,7 @@ type Chrome struct {
 	actions []chromedp.Action
 }
 
-func New() *Chrome {
-	return new(Chrome)
-}
+func New() *Chrome { return new(Chrome) }
 
 func Headless(webdriver bool) *Chrome {
 	if webdriver {

@@ -14,9 +14,10 @@ import (
 )
 
 type Event struct {
-	ID    network.RequestID
-	URL   string
-	Bytes []byte
+	ID     network.RequestID
+	Method string
+	URL    string
+	Bytes  []byte
 }
 
 func ListenURL(ctx context.Context, url string, method string, download bool) <-chan Event {
@@ -25,12 +26,13 @@ func ListenURL(ctx context.Context, url string, method string, download bool) <-
 	chromedp.ListenTarget(ctx, func(v any) {
 		switch ev := v.(type) {
 		case *network.EventRequestWillBeSent:
-			if strings.HasPrefix(ev.Request.URL, url) && strings.EqualFold(method, ev.Request.Method) {
-				m.Store(ev.RequestID, ev.Request.URL)
+			if (url == "" || strings.HasPrefix(ev.Request.URL, url)) &&
+				(method == "" || strings.EqualFold(method, ev.Request.Method)) {
+				m.Store(ev.RequestID, Event{ev.RequestID, ev.Request.Method, ev.Request.URL, nil})
 			}
 		case *network.EventLoadingFinished:
 			if v, ok := m.Load(ev.RequestID); ok {
-				done <- Event{ev.RequestID, v.(string), nil}
+				done <- v.(Event)
 			}
 		}
 	})
