@@ -13,22 +13,45 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
+type (
+	URLHasPrefix string
+	URLHasSuffix string
+	URLContains  string
+	URLEqual     string
+)
+
 type Event struct {
 	ID     network.RequestID
-	Method string
 	URL    string
+	Method string
 	Bytes  []byte
 }
 
-func ListenEvent(ctx context.Context, url string, method string, download bool) <-chan Event {
+func ListenEvent(ctx context.Context, url any, method string, download bool) <-chan Event {
 	c, done := make(chan Event, 1), make(chan Event, 1)
 	var m sync.Map
 	chromedp.ListenTarget(ctx, func(v any) {
 		switch ev := v.(type) {
 		case *network.EventRequestWillBeSent:
-			if (url == "" || strings.HasPrefix(ev.Request.URL, url)) &&
-				(method == "" || strings.EqualFold(method, ev.Request.Method)) {
-				m.Store(ev.RequestID, Event{ev.RequestID, ev.Request.Method, ev.Request.URL, nil})
+			var b bool
+			if url == nil || url == "" {
+				b = true
+			} else {
+				switch url := url.(type) {
+				case string:
+					b = strings.HasPrefix(ev.Request.URL, url)
+				case URLHasPrefix:
+					b = strings.HasPrefix(ev.Request.URL, string(url))
+				case URLHasSuffix:
+					b = strings.HasSuffix(ev.Request.URL, string(url))
+				case URLContains:
+					b = strings.Contains(ev.Request.URL, string(url))
+				case URLEqual:
+					b = ev.Request.URL == string(url)
+				}
+			}
+			if b && (method == "" || strings.EqualFold(method, ev.Request.Method)) {
+				m.Store(ev.RequestID, Event{ev.RequestID, ev.Request.URL, ev.Request.Method, nil})
 			}
 		case *network.EventLoadingFinished:
 			if v, ok := m.Load(ev.RequestID); ok {
@@ -62,7 +85,7 @@ func ListenEvent(ctx context.Context, url string, method string, download bool) 
 	return c
 }
 
-func ListenScript(ctx context.Context, script, url, method, variable string, result any) error {
+func ListenScript(ctx context.Context, script string, url any, method, variable string, result any) error {
 	if variable == "" {
 		b := make([]byte, 8)
 		rand.Read(b)
