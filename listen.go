@@ -20,7 +20,7 @@ type Event struct {
 	Bytes  []byte
 }
 
-func ListenURL(ctx context.Context, url string, method string, download bool) <-chan Event {
+func ListenEvent(ctx context.Context, url string, method string, download bool) <-chan Event {
 	c, done := make(chan Event, 1), make(chan Event, 1)
 	var m sync.Map
 	chromedp.ListenTarget(ctx, func(v any) {
@@ -73,7 +73,7 @@ func ListenScript(ctx context.Context, script, url, method, variable string, res
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	c := ListenURL(ctx, url, method, false)
+	c := ListenEvent(ctx, url, method, false)
 	if err := chromedp.Run(
 		ctx,
 		chromedp.Evaluate(fmt.Sprintln("let", variable), nil),
