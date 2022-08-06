@@ -42,11 +42,11 @@ func (c *Chrome) AddActions(actions ...chromedp.Action) *Chrome {
 }
 
 func (c *Chrome) Context() (context.Context, context.CancelFunc, error) {
-	ctx, cancel := chromedp.NewExecAllocator(
+	ctx, _ := chromedp.NewExecAllocator(
 		context.Background(),
 		append(chromedp.DefaultExecAllocatorOptions[:], c.flags...)...,
 	)
-	ctx, cancel = chromedp.NewContext(ctx)
+	ctx, cancel := chromedp.NewContext(ctx)
 
 	if err := chromedp.Run(ctx, c.actions...); err != nil {
 		cancel()
