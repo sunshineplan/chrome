@@ -85,7 +85,8 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 	return c
 }
 
-func ListenScriptEvent(ctx context.Context, script string, url any, method, variable string, download bool) (<-chan Event, error) {
+func ListenScriptEvent(
+	ctx context.Context, script string, url any, method, variable string, download bool) (string, <-chan Event, error) {
 	if variable == "" {
 		b := make([]byte, 8)
 		rand.Read(b)
@@ -99,17 +100,17 @@ func ListenScriptEvent(ctx context.Context, script string, url any, method, vari
 		chromedp.Evaluate(fmt.Sprintln("let", variable), nil),
 		chromedp.Evaluate(fmt.Sprintf(script, variable), nil),
 	); err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
-	return c, nil
+	return variable, c, nil
 }
 
 func ListenScript(ctx context.Context, script string, url any, method, variable string, result any) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	c, err := ListenScriptEvent(ctx, script, url, method, variable, false)
+	variable, c, err := ListenScriptEvent(ctx, script, url, method, variable, false)
 	if err != nil {
 		return err
 	}
