@@ -28,8 +28,8 @@ type Event struct {
 }
 
 func ListenEvent(ctx context.Context, url any, method string, download bool) <-chan Event {
-	c, done := make(chan Event, 1), make(chan Event, 1)
 	var m sync.Map
+	done := make(chan Event, 1)
 	chromedp.ListenTarget(ctx, func(v any) {
 		switch ev := v.(type) {
 		case *network.EventRequestWillBeSent:
@@ -60,10 +60,12 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 		}
 	})
 
+	c := make(chan Event, 1)
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
+				close(c)
 				return
 			case e := <-done:
 				if download {
@@ -90,16 +92,14 @@ func ListenScriptEvent(
 	if variable == "" {
 		b := make([]byte, 8)
 		rand.Read(b)
-		variable = hex.EncodeToString(b)
+		variable = "chrome" + hex.EncodeToString(b)
 	}
-	variable = "chrome" + variable
+	if err := chromedp.Run(ctx, chromedp.Evaluate(fmt.Sprintln("let", variable), nil)); err != nil {
+		return "", nil, err
+	}
 
 	c := ListenEvent(ctx, url, method, download)
-	if err := chromedp.Run(
-		ctx,
-		chromedp.Evaluate(fmt.Sprintln("let", variable), nil),
-		chromedp.Evaluate(fmt.Sprintf(script, variable), nil),
-	); err != nil {
+	if err := chromedp.Run(ctx, chromedp.Evaluate(fmt.Sprintf(script, variable), nil)); err != nil {
 		return "", nil, err
 	}
 

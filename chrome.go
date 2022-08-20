@@ -7,10 +7,11 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-var NotWebDriver = addScriptToEvaluateOnNewDocument("Object.defineProperty(navigator,'webdriver',{get:()=>false})")
+var UnsetWebDriver = addScriptToEvaluateOnNewDocument("Object.defineProperty(navigator,'webdriver',{get:()=>false})")
 
 type Chrome struct {
 	flags   []chromedp.ExecAllocatorOption
+	ctxOpts []chromedp.ContextOption
 	actions []chromedp.Action
 }
 
@@ -20,7 +21,7 @@ func Headless(webdriver bool) *Chrome {
 	if webdriver {
 		return New()
 	}
-	return New().AddActions(NotWebDriver)
+	return New().AddActions(UnsetWebDriver)
 }
 
 func Headful(webdriver bool) *Chrome {
@@ -28,11 +29,16 @@ func Headful(webdriver bool) *Chrome {
 	if webdriver {
 		return chrome
 	}
-	return chrome.AddActions(NotWebDriver)
+	return chrome.AddActions(UnsetWebDriver)
 }
 
 func (c *Chrome) AddFlags(flags ...chromedp.ExecAllocatorOption) *Chrome {
 	c.flags = append(c.flags, flags...)
+	return c
+}
+
+func (c *Chrome) AddContextOptions(opts ...chromedp.ContextOption) *Chrome {
+	c.ctxOpts = append(c.ctxOpts, opts...)
 	return c
 }
 
@@ -46,7 +52,7 @@ func (c *Chrome) Context() (context.Context, context.CancelFunc, error) {
 		context.Background(),
 		append(chromedp.DefaultExecAllocatorOptions[:], c.flags...)...,
 	)
-	ctx, cancel := chromedp.NewContext(ctx)
+	ctx, cancel := chromedp.NewContext(ctx, c.ctxOpts...)
 
 	if err := chromedp.Run(ctx, c.actions...); err != nil {
 		cancel()
