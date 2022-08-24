@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -48,6 +49,8 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 					b = strings.Contains(ev.Request.URL, string(url))
 				case URLEqual:
 					b = ev.Request.URL == string(url)
+				case *regexp.Regexp:
+					b = url.MatchString(ev.Request.URL)
 				}
 			}
 			if b && (method == "" || strings.EqualFold(method, ev.Request.Method)) {
