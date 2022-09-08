@@ -92,17 +92,27 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 
 func ListenScriptEvent(
 	ctx context.Context, script string, url any, method, variable string, download bool) (string, <-chan Event, error) {
-	if variable == "" {
-		b := make([]byte, 8)
-		rand.Read(b)
-		variable = "chrome" + hex.EncodeToString(b)
-	}
-	if err := chromedp.Run(ctx, chromedp.Evaluate(fmt.Sprintln("let", variable), nil)); err != nil {
-		return "", nil, err
+	expression := fmt.Sprintf(script, "v")
+	if strings.HasSuffix(expression, "%!(EXTRA string=v)") {
+		expression = script
+	} else {
+		if regexp.MustCompile(`%!.?\(.+?v?\)v?$`).MatchString(expression) {
+			return "", nil, fmt.Errorf("format error: %s", expression)
+		}
+
+		if variable == "" {
+			b := make([]byte, 8)
+			rand.Read(b)
+			variable = "chrome" + hex.EncodeToString(b)
+		}
+		if err := chromedp.Run(ctx, chromedp.Evaluate(fmt.Sprintln("let", variable), nil)); err != nil {
+			return "", nil, err
+		}
+		expression = fmt.Sprintf(script, variable)
 	}
 
 	c := ListenEvent(ctx, url, method, download)
-	if err := chromedp.Run(ctx, chromedp.Evaluate(fmt.Sprintf(script, variable), nil)); err != nil {
+	if err := chromedp.Run(ctx, chromedp.Evaluate(expression, nil)); err != nil {
 		return "", nil, err
 	}
 
