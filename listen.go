@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -22,15 +23,26 @@ type (
 )
 
 type Event struct {
-	ID     network.RequestID
-	URL    string
-	Method string
-	Bytes  []byte
+	ID       network.RequestID
+	URL      string
+	Method   string
+	Response *network.Response
+	Bytes    []byte
 }
 
-func ListenEvent(ctx context.Context, url any, method string, download bool) <-chan Event {
+func (e *Event) Header() http.Header {
+	header := make(http.Header)
+	if resp := e.Response; resp != nil {
+		for k, v := range resp.Headers {
+			header.Set(k, fmt.Sprint(v))
+		}
+	}
+	return header
+}
+
+func ListenEvent(ctx context.Context, url any, method string, download bool) <-chan *Event {
 	var m sync.Map
-	done := make(chan Event, 1)
+	done := make(chan *Event, 1)
 	chromedp.ListenTarget(ctx, func(v any) {
 		switch ev := v.(type) {
 		case *network.EventRequestWillBeSent:
@@ -54,16 +66,20 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 				}
 			}
 			if b && (method == "" || strings.EqualFold(method, ev.Request.Method)) {
-				m.Store(ev.RequestID, Event{ev.RequestID, ev.Request.URL, ev.Request.Method, nil})
+				m.Store(ev.RequestID, &Event{ev.RequestID, ev.Request.URL, ev.Request.Method, ev.RedirectResponse, nil})
+			}
+		case *network.EventResponseReceived:
+			if v, ok := m.Load(ev.RequestID); ok {
+				v.(*Event).Response = ev.Response
 			}
 		case *network.EventLoadingFinished:
 			if v, ok := m.Load(ev.RequestID); ok {
-				go func() { done <- v.(Event) }()
+				go func() { done <- v.(*Event) }()
 			}
 		}
 	})
 
-	c := make(chan Event, 1)
+	c := make(chan *Event, 1)
 	go func() {
 		for {
 			select {
@@ -91,7 +107,7 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 }
 
 func ListenScriptEvent(
-	ctx context.Context, script string, url any, method, variable string, download bool) (string, <-chan Event, error) {
+	ctx context.Context, script string, url any, method, variable string, download bool) (string, <-chan *Event, error) {
 	expression := fmt.Sprintf(script, "v")
 	if strings.HasSuffix(expression, "%!(EXTRA string=v)") {
 		expression = script
