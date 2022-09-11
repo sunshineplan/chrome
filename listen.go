@@ -20,20 +20,19 @@ type (
 	URLHasSuffix string
 	URLContains  string
 	URLEqual     string
+	URLBase      string
 )
 
 type Event struct {
-	ID       network.RequestID
-	URL      string
-	Method   string
-	Response *network.Response
+	Request  *network.EventRequestWillBeSent
+	Response *network.EventResponseReceived
 	Bytes    []byte
 }
 
 func (e *Event) Header() http.Header {
 	header := make(http.Header)
 	if resp := e.Response; resp != nil {
-		for k, v := range resp.Headers {
+		for k, v := range resp.Response.Headers {
 			header.Set(k, fmt.Sprint(v))
 		}
 	}
@@ -61,16 +60,23 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 					b = strings.Contains(ev.Request.URL, string(url))
 				case URLEqual:
 					b = ev.Request.URL == string(url)
+				case URLBase:
+					if i := strings.Index(string(url), "?"); i > 0 {
+						url = url[:i]
+					}
+					b = strings.HasPrefix(ev.Request.URL, string(url))
 				case *regexp.Regexp:
 					b = url.MatchString(ev.Request.URL)
+				default:
+					panic("unsupported url type")
 				}
 			}
 			if b && (method == "" || strings.EqualFold(method, ev.Request.Method)) {
-				m.Store(ev.RequestID, &Event{ev.RequestID, ev.Request.URL, ev.Request.Method, ev.RedirectResponse, nil})
+				m.Store(ev.RequestID, &Event{ev, nil, nil})
 			}
 		case *network.EventResponseReceived:
 			if v, ok := m.Load(ev.RequestID); ok {
-				v.(*Event).Response = ev.Response
+				v.(*Event).Response = ev
 			}
 		case *network.EventLoadingFinished:
 			if v, ok := m.Load(ev.RequestID); ok {
@@ -91,7 +97,7 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 					if err := chromedp.Run(
 						ctx,
 						chromedp.ActionFunc(func(ctx context.Context) (err error) {
-							e.Bytes, err = network.GetResponseBody(e.ID).Do(ctx)
+							e.Bytes, err = network.GetResponseBody(e.Response.RequestID).Do(ctx)
 							return
 						}),
 					); err != nil {
