@@ -15,14 +15,6 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-type (
-	URLHasPrefix string
-	URLHasSuffix string
-	URLContains  string
-	URLEqual     string
-	URLBase      string
-)
-
 type Event struct {
 	Request  *network.EventRequestWillBeSent
 	Response *network.EventResponseReceived
@@ -45,33 +37,7 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 	chromedp.ListenTarget(ctx, func(v any) {
 		switch ev := v.(type) {
 		case *network.EventRequestWillBeSent:
-			var b bool
-			if url == nil || url == "" {
-				b = true
-			} else {
-				switch url := url.(type) {
-				case string:
-					b = strings.HasPrefix(ev.Request.URL, url)
-				case URLHasPrefix:
-					b = strings.HasPrefix(ev.Request.URL, string(url))
-				case URLHasSuffix:
-					b = strings.HasSuffix(ev.Request.URL, string(url))
-				case URLContains:
-					b = strings.Contains(ev.Request.URL, string(url))
-				case URLEqual:
-					b = ev.Request.URL == string(url)
-				case URLBase:
-					if i := strings.Index(string(url), "?"); i > 0 {
-						url = url[:i]
-					}
-					b = strings.HasPrefix(ev.Request.URL, string(url))
-				case *regexp.Regexp:
-					b = url.MatchString(ev.Request.URL)
-				default:
-					panic("unsupported url type")
-				}
-			}
-			if b && (method == "" || strings.EqualFold(method, ev.Request.Method)) {
+			if compare(ev.Request.URL, url) && (method == "" || strings.EqualFold(method, ev.Request.Method)) {
 				m.Store(ev.RequestID, &Event{ev, nil, nil})
 			}
 		case *network.EventResponseReceived:
