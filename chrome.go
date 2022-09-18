@@ -64,24 +64,26 @@ func (c *Chrome) AddActions(actions ...chromedp.Action) *Chrome {
 	return c
 }
 
-func (c *Chrome) Context() (ctx context.Context, cancel context.CancelFunc, err error) {
+func (c *Chrome) NewContext(ctx context.Context) (context.Context, context.CancelFunc, error) {
 	if c.url == "" {
-		ctx, _ = chromedp.NewExecAllocator(
-			context.Background(),
-			append(chromedp.DefaultExecAllocatorOptions[:], c.flags...)...,
+		ctx, _ = chromedp.NewExecAllocator(ctx, append(chromedp.DefaultExecAllocatorOptions[:], c.flags...)...,
 		)
 	} else {
-		ctx, _ = chromedp.NewRemoteAllocator(context.Background(), c.url)
+		ctx, _ = chromedp.NewRemoteAllocator(ctx, c.url)
 	}
 
-	ctx, cancel = chromedp.NewContext(ctx, c.ctxOpts...)
+	ctx, cancel := chromedp.NewContext(ctx, c.ctxOpts...)
 
-	if err = chromedp.Run(ctx, c.actions...); err != nil {
+	if err := chromedp.Run(ctx, c.actions...); err != nil {
 		cancel()
 		return nil, nil, err
 	}
 
-	return
+	return ctx, cancel, nil
+}
+
+func (c *Chrome) Context() (context.Context, context.CancelFunc, error) {
+	return c.NewContext(context.Background())
 }
 
 func addScriptToEvaluateOnNewDocument(script string) chromedp.Action {
