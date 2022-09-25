@@ -29,10 +29,11 @@ func compare(url string, value any) (res bool) {
 		case URLEqual:
 			res = url == string(v)
 		case URLBase:
-			if i := strings.Index(string(v), "?"); i > 0 {
-				url = url[:i]
+			str := string(v)
+			if i := strings.Index(str, "?"); i > 0 {
+				str = str[:i]
 			}
-			res = strings.HasPrefix(url, string(v))
+			res = strings.HasPrefix(url, str)
 		case *regexp.Regexp:
 			res = v.MatchString(url)
 		default:
