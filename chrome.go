@@ -3,7 +3,10 @@ package chrome
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
@@ -11,11 +14,15 @@ import (
 
 var UnsetWebDriver = addScriptToEvaluateOnNewDocument("Object.defineProperty(navigator,'webdriver',{get:()=>false})")
 
+var _ http.CookieJar = &Chrome{}
+
 type Chrome struct {
 	url     string
 	flags   []chromedp.ExecAllocatorOption
 	ctxOpts []chromedp.ContextOption
 	actions []chromedp.Action
+
+	ctx context.Context
 }
 
 func New(url string) *Chrome { return &Chrome{url: url} }
@@ -64,26 +71,54 @@ func (c *Chrome) AddActions(actions ...chromedp.Action) *Chrome {
 	return c
 }
 
-func (c *Chrome) NewContext(ctx context.Context) (context.Context, context.CancelFunc, error) {
-	if c.url == "" {
-		ctx, _ = chromedp.NewExecAllocator(ctx, append(chromedp.DefaultExecAllocatorOptions[:], c.flags...)...,
-		)
+func (c *Chrome) context(timeout time.Duration) (ctx context.Context, cancel context.CancelFunc, err error) {
+	if c.ctx == nil || c.ctx.Err() != nil {
+		if timeout > 0 {
+			ctx, cancel = context.WithTimeout(context.Background(), timeout)
+		} else {
+			ctx, cancel = context.WithCancel(context.Background())
+		}
+
+		if c.url == "" {
+			ctx, _ = chromedp.NewExecAllocator(ctx, append(chromedp.DefaultExecAllocatorOptions[:], c.flags...)...)
+		} else {
+			ctx, _ = chromedp.NewRemoteAllocator(ctx, c.url)
+		}
+		ctx, _ = chromedp.NewContext(ctx, c.ctxOpts...)
+
+		c.ctx = ctx
 	} else {
-		ctx, _ = chromedp.NewRemoteAllocator(ctx, c.url)
+		if timeout > 0 {
+			ctx, cancel = context.WithTimeout(c.ctx, timeout)
+			ctx, _ = chromedp.NewContext(ctx, c.ctxOpts...)
+		} else {
+			ctx, cancel = chromedp.NewContext(c.ctx, c.ctxOpts...)
+		}
+
 	}
 
-	ctx, cancel := chromedp.NewContext(ctx, c.ctxOpts...)
-
-	if err := chromedp.Run(ctx, c.actions...); err != nil {
+	if err = chromedp.Run(ctx, c.actions...); err != nil {
 		cancel()
 		return nil, nil, err
 	}
 
-	return ctx, cancel, nil
+	return
 }
 
 func (c *Chrome) Context() (context.Context, context.CancelFunc, error) {
-	return c.NewContext(context.Background())
+	return c.context(0)
+}
+
+func (c *Chrome) ContextWithTimeout(timeout time.Duration) (context.Context, context.CancelFunc, error) {
+	return c.context(timeout)
+}
+
+func (c *Chrome) SetCookies(u *url.URL, cookies []*http.Cookie) {
+	SetCookies(c.ctx, u, cookies)
+}
+
+func (c *Chrome) Cookies(u *url.URL) []*http.Cookie {
+	return Cookies(c.ctx, u)
 }
 
 func addScriptToEvaluateOnNewDocument(script string) chromedp.Action {
