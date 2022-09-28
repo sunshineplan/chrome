@@ -8,13 +8,17 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/chromedp/cdproto/fetch"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 )
 
 var UnsetWebDriver = addScriptToEvaluateOnNewDocument("Object.defineProperty(navigator,'webdriver',{get:()=>false})")
 
-var _ http.CookieJar = &Chrome{}
+var (
+	_ http.CookieJar  = &Chrome{}
+	_ context.Context = &Chrome{}
+)
 
 type Chrome struct {
 	url     string
@@ -22,10 +26,11 @@ type Chrome struct {
 	ctxOpts []chromedp.ContextOption
 	actions []chromedp.Action
 
-	ctx context.Context
+	context.Context
+	cancel chan struct{}
 }
 
-func New(url string) *Chrome { return &Chrome{url: url} }
+func New(url string) *Chrome { return &Chrome{url: url, cancel: make(chan struct{})} }
 
 func Headless(webdriver bool) *Chrome {
 	if webdriver {
@@ -56,6 +61,34 @@ func Local(port int) *Chrome {
 	return Remote(fmt.Sprintf("ws://localhost:%d", port))
 }
 
+func (c *Chrome) Deadline() (deadline time.Time, ok bool) {
+	if c.Context == nil {
+		c.newContext(context.Background())
+	}
+	return c.Context.Deadline()
+}
+
+func (c *Chrome) Done() <-chan struct{} {
+	if c.Context == nil {
+		c.newContext(context.Background())
+	}
+	return c.Context.Done()
+}
+
+func (c *Chrome) Err() error {
+	if c.Context == nil {
+		c.newContext(context.Background())
+	}
+	return c.Context.Err()
+}
+
+func (c *Chrome) Value(key any) any {
+	if c.Context == nil {
+		c.newContext(context.Background())
+	}
+	return c.Context.Value(key)
+}
+
 func (c *Chrome) AddFlags(flags ...chromedp.ExecAllocatorOption) *Chrome {
 	c.flags = append(c.flags, flags...)
 	return c
@@ -71,30 +104,38 @@ func (c *Chrome) AddActions(actions ...chromedp.Action) *Chrome {
 	return c
 }
 
+func (c *Chrome) newContext(ctx context.Context) context.Context {
+	var cancel context.CancelFunc
+	if c.url == "" {
+		ctx, cancel = chromedp.NewExecAllocator(ctx, append(chromedp.DefaultExecAllocatorOptions[:], c.flags...)...)
+	} else {
+		ctx, cancel = chromedp.NewRemoteAllocator(ctx, c.url)
+	}
+
+	go func() {
+		<-c.cancel
+		cancel()
+	}()
+
+	c.Context, _ = chromedp.NewContext(ctx, c.ctxOpts...)
+	return c
+}
+
 func (c *Chrome) context(timeout time.Duration) (ctx context.Context, cancel context.CancelFunc, err error) {
-	if c.ctx == nil || c.ctx.Err() != nil {
+	if c.Context == nil || c.Err() != nil {
 		if timeout > 0 {
 			ctx, cancel = context.WithTimeout(context.Background(), timeout)
 		} else {
 			ctx, cancel = context.WithCancel(context.Background())
 		}
-
-		if c.url == "" {
-			ctx, _ = chromedp.NewExecAllocator(ctx, append(chromedp.DefaultExecAllocatorOptions[:], c.flags...)...)
-		} else {
-			ctx, _ = chromedp.NewRemoteAllocator(ctx, c.url)
-		}
-		ctx, _ = chromedp.NewContext(ctx, c.ctxOpts...)
-
-		c.ctx = ctx
+		ctx = c.newContext(ctx)
 	} else {
 		if timeout > 0 {
-			ctx, cancel = context.WithTimeout(c.ctx, timeout)
+			ctx, cancel = context.WithTimeout(c, timeout)
 			ctx, _ = chromedp.NewContext(ctx, c.ctxOpts...)
 		} else {
-			ctx, cancel = chromedp.NewContext(c.ctx, c.ctxOpts...)
+			ctx, cancel = chromedp.NewContext(c, c.ctxOpts...)
 		}
-
 	}
 
 	if err = chromedp.Run(ctx, c.actions...); err != nil {
@@ -105,7 +146,7 @@ func (c *Chrome) context(timeout time.Duration) (ctx context.Context, cancel con
 	return
 }
 
-func (c *Chrome) Context() (context.Context, context.CancelFunc, error) {
+func (c *Chrome) ContextWithCancel() (context.Context, context.CancelFunc, error) {
 	return c.context(0)
 }
 
@@ -113,12 +154,46 @@ func (c *Chrome) ContextWithTimeout(timeout time.Duration) (context.Context, con
 	return c.context(timeout)
 }
 
+func (c *Chrome) Close() {
+	if c.cancel != nil {
+		close(c.cancel)
+	}
+}
+
 func (c *Chrome) SetCookies(u *url.URL, cookies []*http.Cookie) {
-	SetCookies(c.ctx, u, cookies)
+	SetCookies(c, u, cookies)
 }
 
 func (c *Chrome) Cookies(u *url.URL) []*http.Cookie {
-	return Cookies(c.ctx, u)
+	return Cookies(c, u)
+}
+
+func (c *Chrome) ListenDownload(url any) <-chan *DownloadEvent {
+	return ListenDownload(c, url)
+}
+
+func (c *Chrome) SetDownload(path string) error {
+	return SetDownload(c, path)
+}
+
+func (c *Chrome) Download(url string, match any) (*DownloadEvent, error) {
+	return Download(c, url, match)
+}
+
+func (c *Chrome) ListenEvent(url any, method string, download bool) <-chan *Event {
+	return ListenEvent(c, url, method, download)
+}
+
+func (c *Chrome) ListenScriptEvent(script string, url any, method, variable string, download bool) (string, <-chan *Event, error) {
+	return ListenScriptEvent(c, script, url, method, variable, download)
+}
+
+func (c *Chrome) ListenScript(script string, url any, method, variable string, result any) error {
+	return ListenScript(c, script, url, method, variable, result)
+}
+
+func (c *Chrome) EnableFetch(fn func(*fetch.EventRequestPaused) bool) error {
+	return EnableFetch(c, fn)
 }
 
 func addScriptToEvaluateOnNewDocument(script string) chromedp.Action {

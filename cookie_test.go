@@ -10,15 +10,11 @@ import (
 
 func TestCookie(t *testing.T) {
 	chrome := Headless(true)
-	ctx, cancel, err := chrome.Context()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
+	defer chrome.Close()
 
 	u := &url.URL{Scheme: "https", Host: "github.com"}
 	chrome.SetCookies(u, []*http.Cookie{{Name: "test", Value: "value"}})
-	if err := chromedp.Run(ctx, chromedp.Navigate("https://github.com/sunshineplan/chrome")); err != nil {
+	if err := chromedp.Run(chrome, chromedp.Navigate("https://github.com/sunshineplan/chrome")); err != nil {
 		t.Fatal(err)
 	}
 	var found bool

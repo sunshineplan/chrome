@@ -45,10 +45,9 @@ func ListenDownload(ctx context.Context, url any) <-chan *DownloadEvent {
 }
 
 func SetDownload(ctx context.Context, path string) error {
-	return chromedp.Run(
-		ctx,
-		browser.SetDownloadBehavior(browser.SetDownloadBehaviorBehaviorAllowAndName).WithDownloadPath(path).WithEventsEnabled(true),
-	)
+	return chromedp.Run(ctx, browser.SetDownloadBehavior(browser.SetDownloadBehaviorBehaviorAllowAndName).
+		WithDownloadPath(path).
+		WithEventsEnabled(true))
 }
 
 func Download(ctx context.Context, url string, match any) (*DownloadEvent, error) {

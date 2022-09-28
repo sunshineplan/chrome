@@ -8,22 +8,19 @@ import (
 )
 
 func TestDownload(t *testing.T) {
-	ctx, cancel, err := Headless(true).Context()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
+	chrome := Headless(true)
+	defer chrome.Close()
 
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := SetDownload(ctx, wd); err != nil {
+	if err := chrome.SetDownload(wd); err != nil {
 		t.Fatal(err)
 	}
 
-	res, err := Download(ctx, "https://github.com/sunshineplan/chrome/archive/refs/heads/main.zip", nil)
+	res, err := chrome.Download("https://github.com/sunshineplan/chrome/archive/refs/heads/main.zip", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
