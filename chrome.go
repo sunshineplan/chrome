@@ -105,19 +105,20 @@ func (c *Chrome) AddActions(actions ...chromedp.Action) *Chrome {
 }
 
 func (c *Chrome) context(ctx context.Context) context.Context {
-	var cancel context.CancelFunc
 	if c.url == "" {
-		ctx, cancel = chromedp.NewExecAllocator(ctx, append(chromedp.DefaultExecAllocatorOptions[:], c.flags...)...)
+		ctx, _ = chromedp.NewExecAllocator(ctx, append(chromedp.DefaultExecAllocatorOptions[:], c.flags...)...)
 	} else {
-		ctx, cancel = chromedp.NewRemoteAllocator(ctx, c.url)
+		ctx, _ = chromedp.NewRemoteAllocator(ctx, c.url)
 	}
+
+	var cancel context.CancelFunc
+	c.Context, cancel = chromedp.NewContext(ctx, c.ctxOpts...)
 
 	go func() {
 		<-c.cancel
 		cancel()
 	}()
 
-	c.Context, _ = chromedp.NewContext(ctx, c.ctxOpts...)
 	return c
 }
 
