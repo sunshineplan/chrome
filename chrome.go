@@ -63,28 +63,28 @@ func Local(port int) *Chrome {
 
 func (c *Chrome) Deadline() (deadline time.Time, ok bool) {
 	if c.Context == nil {
-		c.newContext(context.Background())
+		c.context(context.Background())
 	}
 	return c.Context.Deadline()
 }
 
 func (c *Chrome) Done() <-chan struct{} {
 	if c.Context == nil {
-		c.newContext(context.Background())
+		c.context(context.Background())
 	}
 	return c.Context.Done()
 }
 
 func (c *Chrome) Err() error {
 	if c.Context == nil {
-		c.newContext(context.Background())
+		c.context(context.Background())
 	}
 	return c.Context.Err()
 }
 
 func (c *Chrome) Value(key any) any {
 	if c.Context == nil {
-		c.newContext(context.Background())
+		c.context(context.Background())
 	}
 	return c.Context.Value(key)
 }
@@ -104,7 +104,7 @@ func (c *Chrome) AddActions(actions ...chromedp.Action) *Chrome {
 	return c
 }
 
-func (c *Chrome) newContext(ctx context.Context) context.Context {
+func (c *Chrome) context(ctx context.Context) context.Context {
 	var cancel context.CancelFunc
 	if c.url == "" {
 		ctx, cancel = chromedp.NewExecAllocator(ctx, append(chromedp.DefaultExecAllocatorOptions[:], c.flags...)...)
@@ -121,14 +121,14 @@ func (c *Chrome) newContext(ctx context.Context) context.Context {
 	return c
 }
 
-func (c *Chrome) context(timeout time.Duration) (ctx context.Context, cancel context.CancelFunc, err error) {
+func (c *Chrome) newContext(timeout time.Duration) (ctx context.Context, cancel context.CancelFunc, err error) {
 	if c.Context == nil || c.Err() != nil {
 		if timeout > 0 {
 			ctx, cancel = context.WithTimeout(context.Background(), timeout)
 		} else {
 			ctx, cancel = context.WithCancel(context.Background())
 		}
-		ctx = c.newContext(ctx)
+		ctx = c.context(ctx)
 	} else {
 		if timeout > 0 {
 			ctx, cancel = context.WithTimeout(c, timeout)
@@ -146,12 +146,12 @@ func (c *Chrome) context(timeout time.Duration) (ctx context.Context, cancel con
 	return
 }
 
-func (c *Chrome) ContextWithCancel() (context.Context, context.CancelFunc, error) {
-	return c.context(0)
+func (c *Chrome) NewContext() (context.Context, context.CancelFunc, error) {
+	return c.newContext(0)
 }
 
-func (c *Chrome) ContextWithTimeout(timeout time.Duration) (context.Context, context.CancelFunc, error) {
-	return c.context(timeout)
+func (c *Chrome) WithTimeout(timeout time.Duration) (context.Context, context.CancelFunc, error) {
+	return c.newContext(timeout)
 }
 
 func (c *Chrome) Close() {
