@@ -105,20 +105,19 @@ func (c *Chrome) AddActions(actions ...chromedp.Action) *Chrome {
 }
 
 func (c *Chrome) context(ctx context.Context) context.Context {
-	if c.url == "" {
-		ctx, _ = chromedp.NewExecAllocator(ctx, append(chromedp.DefaultExecAllocatorOptions[:], c.flags...)...)
-	} else {
-		ctx, _ = chromedp.NewRemoteAllocator(ctx, c.url)
-	}
-
 	var cancel context.CancelFunc
-	c.Context, cancel = chromedp.NewContext(ctx, c.ctxOpts...)
+	if c.url == "" {
+		ctx, cancel = chromedp.NewExecAllocator(ctx, append(chromedp.DefaultExecAllocatorOptions[:], c.flags...)...)
+	} else {
+		ctx, cancel = chromedp.NewRemoteAllocator(ctx, c.url)
+	}
 
 	go func() {
 		<-c.cancel
 		cancel()
 	}()
 
+	c.Context, _ = chromedp.NewContext(ctx, c.ctxOpts...)
 	return c
 }
 
@@ -158,6 +157,9 @@ func (c *Chrome) WithTimeout(timeout time.Duration) (context.Context, context.Ca
 func (c *Chrome) Close() {
 	if c.cancel != nil {
 		close(c.cancel)
+		if c.Context != nil {
+			<-c.Done()
+		}
 	}
 }
 
