@@ -26,7 +26,7 @@ type Chrome struct {
 	ctxOpts []chromedp.ContextOption
 	actions []chromedp.Action
 
-	context.Context
+	ctx    context.Context
 	cancel chan struct{}
 }
 
@@ -62,31 +62,31 @@ func Local(port int) *Chrome {
 }
 
 func (c *Chrome) Deadline() (deadline time.Time, ok bool) {
-	if c.Context == nil {
+	if c.ctx == nil {
 		c.context(context.Background())
 	}
-	return c.Context.Deadline()
+	return c.ctx.Deadline()
 }
 
 func (c *Chrome) Done() <-chan struct{} {
-	if c.Context == nil {
+	if c.ctx == nil {
 		c.context(context.Background())
 	}
-	return c.Context.Done()
+	return c.ctx.Done()
 }
 
 func (c *Chrome) Err() error {
-	if c.Context == nil {
+	if c.ctx == nil {
 		c.context(context.Background())
 	}
-	return c.Context.Err()
+	return c.ctx.Err()
 }
 
 func (c *Chrome) Value(key any) any {
-	if c.Context == nil {
+	if c.ctx == nil {
 		c.context(context.Background())
 	}
-	return c.Context.Value(key)
+	return c.ctx.Value(key)
 }
 
 func (c *Chrome) AddFlags(flags ...chromedp.ExecAllocatorOption) *Chrome {
@@ -113,16 +113,19 @@ func (c *Chrome) context(ctx context.Context) context.Context {
 	}
 
 	go func() {
-		<-c.cancel
-		cancel()
+		select {
+		case <-c.cancel:
+			cancel()
+		case <-ctx.Done():
+		}
 	}()
 
-	c.Context, _ = chromedp.NewContext(ctx, c.ctxOpts...)
+	c.ctx, _ = chromedp.NewContext(ctx, c.ctxOpts...)
 	return c
 }
 
 func (c *Chrome) newContext(timeout time.Duration) (ctx context.Context, cancel context.CancelFunc, err error) {
-	if c.Context == nil || c.Err() != nil {
+	if c.ctx == nil || c.Err() != nil {
 		if timeout > 0 {
 			ctx, cancel = context.WithTimeout(context.Background(), timeout)
 		} else {
@@ -157,7 +160,7 @@ func (c *Chrome) WithTimeout(timeout time.Duration) (context.Context, context.Ca
 func (c *Chrome) Close() {
 	if c.cancel != nil {
 		close(c.cancel)
-		if c.Context != nil {
+		if c.ctx != nil {
 			<-c.Done()
 		}
 	}
