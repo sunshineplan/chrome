@@ -141,7 +141,7 @@ func (c *Chrome) newContext(timeout time.Duration) (ctx context.Context, cancel 
 		}
 	}
 
-	if err = chromedp.Run(ctx, c.actions...); err != nil {
+	if err = c.Run(c.actions...); err != nil {
 		cancel()
 		return nil, nil, err
 	}
@@ -200,6 +200,10 @@ func (c *Chrome) ListenScript(script string, url any, method, variable string, r
 
 func (c *Chrome) EnableFetch(fn func(*fetch.EventRequestPaused) bool) error {
 	return EnableFetch(c, fn)
+}
+
+func (c *Chrome) Run(actions ...chromedp.Action) error {
+	return chromedp.Run(c, actions...)
 }
 
 func addScriptToEvaluateOnNewDocument(script string) chromedp.Action {

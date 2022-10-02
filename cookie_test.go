@@ -14,7 +14,7 @@ func TestCookie(t *testing.T) {
 
 	u := &url.URL{Scheme: "https", Host: "github.com"}
 	chrome.SetCookies(u, []*http.Cookie{{Name: "test", Value: "value"}})
-	if err := chromedp.Run(chrome, chromedp.Navigate("https://github.com/sunshineplan/chrome")); err != nil {
+	if err := chrome.Run(chromedp.Navigate("https://github.com/sunshineplan/chrome")); err != nil {
 		t.Fatal(err)
 	}
 	var found bool
