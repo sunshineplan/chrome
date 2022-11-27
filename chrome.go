@@ -28,6 +28,7 @@ type Chrome struct {
 
 	ctx    context.Context
 	cancel chan struct{}
+	done   chan struct{}
 }
 
 func New(url string) *Chrome { return &Chrome{url: url, cancel: make(chan struct{})} }
@@ -111,16 +112,18 @@ func (c *Chrome) context(ctx context.Context) context.Context {
 	} else {
 		ctx, cancel = chromedp.NewRemoteAllocator(ctx, c.url)
 	}
+	c.ctx, _ = chromedp.NewContext(ctx, c.ctxOpts...)
+	c.cancel, c.done = make(chan struct{}), make(chan struct{})
 
 	go func() {
 		select {
 		case <-c.cancel:
 			cancel()
+			close(c.done)
 		case <-ctx.Done():
 		}
 	}()
 
-	c.ctx, _ = chromedp.NewContext(ctx, c.ctxOpts...)
 	return c
 }
 
@@ -160,9 +163,7 @@ func (c *Chrome) WithTimeout(timeout time.Duration) (context.Context, context.Ca
 func (c *Chrome) Close() {
 	if c.cancel != nil {
 		close(c.cancel)
-		if c.ctx != nil {
-			<-c.Done()
-		}
+		<-c.done
 	}
 }
 
