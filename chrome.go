@@ -13,7 +13,7 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-var UnsetWebDriver = addScriptToEvaluateOnNewDocument("Object.defineProperty(navigator,'webdriver',{get:()=>false})")
+var UnsetWebDriver = AddScriptToEvaluateOnNewDocument("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
 
 var (
 	_ http.CookieJar  = &Chrome{}
@@ -207,7 +207,7 @@ func (c *Chrome) Run(actions ...chromedp.Action) error {
 	return chromedp.Run(c, actions...)
 }
 
-func addScriptToEvaluateOnNewDocument(script string) chromedp.Action {
+func AddScriptToEvaluateOnNewDocument(script string) chromedp.Action {
 	return chromedp.ActionFunc(func(ctx context.Context) (err error) {
 		_, err = page.AddScriptToEvaluateOnNewDocument(script).Do(ctx)
 		return

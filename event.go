@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,6 +15,8 @@ import (
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
 )
+
+var Debug bool
 
 type Event struct {
 	Request  *network.EventRequestWillBeSent
@@ -29,6 +32,10 @@ func (e *Event) Header() http.Header {
 		}
 	}
 	return header
+}
+
+func (e *Event) Unmarshal(v any) error {
+	return json.Unmarshal(e.Bytes, v)
 }
 
 func ListenEvent(ctx context.Context, url any, method string, download bool) <-chan *Event {
@@ -67,7 +74,9 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 							return
 						}),
 					); err != nil {
-						log.Print(err)
+						if Debug {
+							log.Print(err)
+						}
 					}
 				}
 				c <- e
