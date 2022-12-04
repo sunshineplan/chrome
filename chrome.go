@@ -67,37 +67,37 @@ func Local(port int) *Chrome {
 
 func (c *Chrome) Deadline() (deadline time.Time, ok bool) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	if c.ctx == nil {
 		c.context(context.Background())
 	}
+	c.mu.Unlock()
 	return c.ctx.Deadline()
 }
 
 func (c *Chrome) Done() <-chan struct{} {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	if c.ctx == nil {
 		c.context(context.Background())
 	}
+	c.mu.Unlock()
 	return c.ctx.Done()
 }
 
 func (c *Chrome) Err() error {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	if c.ctx == nil {
 		c.context(context.Background())
 	}
+	c.mu.Unlock()
 	return c.ctx.Err()
 }
 
 func (c *Chrome) Value(key any) any {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	if c.ctx == nil {
 		c.context(context.Background())
 	}
+	c.mu.Unlock()
 	return c.ctx.Value(key)
 }
 
