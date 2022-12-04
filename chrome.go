@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/chromedp/cdproto/fetch"
@@ -25,6 +26,8 @@ type Chrome struct {
 	flags   []chromedp.ExecAllocatorOption
 	ctxOpts []chromedp.ContextOption
 	actions []chromedp.Action
+
+	mu sync.Mutex
 
 	ctx    context.Context
 	cancel chan struct{}
@@ -63,6 +66,8 @@ func Local(port int) *Chrome {
 }
 
 func (c *Chrome) Deadline() (deadline time.Time, ok bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.ctx == nil {
 		c.context(context.Background())
 	}
@@ -70,6 +75,8 @@ func (c *Chrome) Deadline() (deadline time.Time, ok bool) {
 }
 
 func (c *Chrome) Done() <-chan struct{} {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.ctx == nil {
 		c.context(context.Background())
 	}
@@ -77,6 +84,8 @@ func (c *Chrome) Done() <-chan struct{} {
 }
 
 func (c *Chrome) Err() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.ctx == nil {
 		c.context(context.Background())
 	}
@@ -84,6 +93,8 @@ func (c *Chrome) Err() error {
 }
 
 func (c *Chrome) Value(key any) any {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.ctx == nil {
 		c.context(context.Background())
 	}
@@ -128,6 +139,7 @@ func (c *Chrome) context(ctx context.Context) context.Context {
 }
 
 func (c *Chrome) newContext(timeout time.Duration) (ctx context.Context, cancel context.CancelFunc, err error) {
+	c.mu.Lock()
 	if c.ctx == nil || c.Err() != nil {
 		if timeout > 0 {
 			ctx, cancel = context.WithTimeout(context.Background(), timeout)
@@ -143,6 +155,7 @@ func (c *Chrome) newContext(timeout time.Duration) (ctx context.Context, cancel 
 			ctx, cancel = chromedp.NewContext(c, c.ctxOpts...)
 		}
 	}
+	c.mu.Unlock()
 
 	if err = c.Run(c.actions...); err != nil {
 		cancel()
@@ -161,9 +174,12 @@ func (c *Chrome) WithTimeout(timeout time.Duration) (context.Context, context.Ca
 }
 
 func (c *Chrome) Close() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.cancel != nil {
 		close(c.cancel)
 		<-c.done
+		c.cancel = nil
 	}
 }
 
