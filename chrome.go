@@ -124,6 +124,11 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, bool
 		c.cancel, c.done = make(chan struct{}), make(chan struct{})
 		new = true
 
+		if err := c.Run(c.actions...); err != nil {
+			cancel()
+			panic(err)
+		}
+
 		go func() {
 			select {
 			case <-c.cancel:
@@ -155,11 +160,11 @@ func (c *Chrome) newContext(timeout time.Duration) (ctx context.Context, cancel 
 		} else {
 			ctx, cancel = chromedp.NewContext(c, c.ctxOpts...)
 		}
-	}
 
-	if err = c.Run(c.actions...); err != nil {
-		cancel()
-		return nil, nil, err
+		if err = c.Run(c.actions...); err != nil {
+			cancel()
+			return nil, nil, err
+		}
 	}
 
 	return
