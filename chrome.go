@@ -23,7 +23,10 @@ var (
 )
 
 type Chrome struct {
-	url     string
+	url       string
+	useragent string
+	proxy     string
+
 	flags   []chromedp.ExecAllocatorOption
 	ctxOpts []chromedp.ContextOption
 	actions []chromedp.Action
@@ -94,6 +97,16 @@ func (c *Chrome) Value(key any) any {
 	return c.ctx.Value(key)
 }
 
+func (c *Chrome) UserAgent(useragent string) *Chrome {
+	c.useragent = useragent
+	return c
+}
+
+func (c *Chrome) Proxy(proxy string) *Chrome {
+	c.proxy = proxy
+	return c
+}
+
 func (c *Chrome) AddFlags(flags ...chromedp.ExecAllocatorOption) *Chrome {
 	c.flags = append(c.flags, flags...)
 	return c
@@ -117,7 +130,14 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, bool
 	if c.ctx == nil || (reset && c.Err() != nil) {
 		var cancel context.CancelFunc
 		if c.url == "" {
-			ctx, cancel = chromedp.NewExecAllocator(ctx, append(chromedp.DefaultExecAllocatorOptions[:], c.flags...)...)
+			opts := chromedp.DefaultExecAllocatorOptions[:]
+			if c.useragent != "" {
+				opts = append(opts, chromedp.UserAgent(c.useragent))
+			}
+			if c.proxy != "" {
+				opts = append(opts, chromedp.ProxyServer(c.proxy))
+			}
+			ctx, cancel = chromedp.NewExecAllocator(ctx, append(opts, c.flags...)...)
 		} else {
 			ctx, cancel = chromedp.NewRemoteAllocator(ctx, c.url)
 		}
