@@ -1,7 +1,6 @@
 package chrome
 
 import (
-	"log"
 	"testing"
 
 	"github.com/chromedp/cdproto/domstorage"
@@ -17,7 +16,7 @@ func TestStorage(t *testing.T) {
 	}
 
 	storageID := &domstorage.StorageID{SecurityOrigin: "https://github.com"}
-	if err := chrome.SetStorageItem(storageID, "key", "value"); err != nil {
+	if err := chrome.SetStorageItem(storageID, "test", "value"); err != nil {
 		t.Fatal(err)
 	}
 	items, err := chrome.StorageItems(storageID)
@@ -27,7 +26,10 @@ func TestStorage(t *testing.T) {
 
 	var found bool
 	for _, i := range items {
-		log.Print(i)
+		if i[0] == "test" && i[1] == "value" {
+			found = true
+			break
+		}
 	}
 	if !found {
 		t.Error("want found, got not found")
