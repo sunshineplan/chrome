@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chromedp/cdproto/domstorage"
 	"github.com/chromedp/cdproto/fetch"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
@@ -193,6 +194,14 @@ func (c *Chrome) SetCookies(u *url.URL, cookies []*http.Cookie) {
 
 func (c *Chrome) Cookies(u *url.URL) []*http.Cookie {
 	return Cookies(c, u)
+}
+
+func (c *Chrome) SetStorageItem(storageID *domstorage.StorageID, key, value string) error {
+	return SetStorageItem(c, storageID, key, value)
+}
+
+func (c *Chrome) StorageItems(storageID *domstorage.StorageID) ([]domstorage.Item, error) {
+	return StorageItems(c, storageID)
 }
 
 func (c *Chrome) ListenDownload(url any) <-chan *DownloadEvent {
