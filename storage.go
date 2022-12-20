@@ -21,3 +21,11 @@ func StorageItems(ctx context.Context, storageID *domstorage.StorageID) (res []d
 	)
 	return
 }
+
+func (c *Chrome) SetStorageItem(storageID *domstorage.StorageID, key, value string) error {
+	return SetStorageItem(c, storageID, key, value)
+}
+
+func (c *Chrome) StorageItems(storageID *domstorage.StorageID) ([]domstorage.Item, error) {
+	return StorageItems(c, storageID)
+}

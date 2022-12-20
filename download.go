@@ -65,3 +65,15 @@ func Download(ctx context.Context, url string, match any) (*DownloadEvent, error
 		return e, nil
 	}
 }
+
+func (c *Chrome) ListenDownload(url any) <-chan *DownloadEvent {
+	return ListenDownload(c, url)
+}
+
+func (c *Chrome) SetDownload(path string) error {
+	return SetDownload(c, path)
+}
+
+func (c *Chrome) Download(url string, match any) (*DownloadEvent, error) {
+	return Download(c, url, match)
+}

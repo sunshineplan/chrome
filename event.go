@@ -38,6 +38,10 @@ func (e *Event) Unmarshal(v any) error {
 	return json.Unmarshal(e.Bytes, v)
 }
 
+func (e *Event) String() string {
+	return string(e.Bytes)
+}
+
 func ListenEvent(ctx context.Context, url any, method string, download bool) <-chan *Event {
 	var m sync.Map
 	done := make(chan *Event, 1)
@@ -131,4 +135,16 @@ func ListenScript(ctx context.Context, script string, url any, method, variable 
 	case <-c:
 		return chromedp.Run(ctx, chromedp.Evaluate(variable, &result))
 	}
+}
+
+func (c *Chrome) ListenEvent(url any, method string, download bool) <-chan *Event {
+	return ListenEvent(c, url, method, download)
+}
+
+func (c *Chrome) ListenScriptEvent(script string, url any, method, variable string, download bool) (string, <-chan *Event, error) {
+	return ListenScriptEvent(c, script, url, method, variable, download)
+}
+
+func (c *Chrome) ListenScript(script string, url any, method, variable string, result any) error {
+	return ListenScript(c, script, url, method, variable, result)
 }

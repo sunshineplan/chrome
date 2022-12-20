@@ -25,3 +25,7 @@ func EnableFetch(ctx context.Context, fn func(*fetch.EventRequestPaused) bool) e
 	})
 	return chromedp.Run(ctx, fetch.Enable())
 }
+
+func (c *Chrome) EnableFetch(fn func(*fetch.EventRequestPaused) bool) error {
+	return EnableFetch(c, fn)
+}

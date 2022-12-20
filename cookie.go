@@ -62,3 +62,11 @@ func Cookies(ctx context.Context, u *url.URL) (res []*http.Cookie) {
 	}
 	return
 }
+
+func (c *Chrome) SetCookies(u *url.URL, cookies []*http.Cookie) {
+	SetCookies(c, u, cookies)
+}
+
+func (c *Chrome) Cookies(u *url.URL) []*http.Cookie {
+	return Cookies(c, u)
+}

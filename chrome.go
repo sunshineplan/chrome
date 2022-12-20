@@ -4,13 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/chromedp/cdproto/domstorage"
-	"github.com/chromedp/cdproto/fetch"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 )
@@ -128,7 +125,7 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, bool
 
 	var new bool
 	if c.ctx == nil || (reset && c.Err() != nil) {
-		var cancel context.CancelFunc
+		var allocatorCancel, ctxCancel context.CancelFunc
 		if c.url == "" {
 			opts := chromedp.DefaultExecAllocatorOptions[:]
 			if c.useragent != "" {
@@ -137,25 +134,27 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, bool
 			if c.proxy != "" {
 				opts = append(opts, chromedp.ProxyServer(c.proxy))
 			}
-			ctx, cancel = chromedp.NewExecAllocator(ctx, append(opts, c.flags...)...)
+			ctx, allocatorCancel = chromedp.NewExecAllocator(ctx, append(opts, c.flags...)...)
 		} else {
-			ctx, cancel = chromedp.NewRemoteAllocator(ctx, c.url)
+			ctx, allocatorCancel = chromedp.NewRemoteAllocator(ctx, c.url)
 		}
-		c.ctx, _ = chromedp.NewContext(ctx, c.ctxOpts...)
+		c.ctx, ctxCancel = chromedp.NewContext(ctx, c.ctxOpts...)
 		c.cancel, c.done = make(chan struct{}), make(chan struct{})
 		new = true
 
 		if err := c.Run(c.actions...); err != nil {
-			cancel()
+			ctxCancel()
+			allocatorCancel()
 			panic(err)
 		}
 
 		go func() {
 			select {
 			case <-c.cancel:
-				cancel()
 			case <-ctx.Done():
 			}
+			ctxCancel()
+			allocatorCancel()
 			c.cancel = nil
 			close(c.done)
 		}()
@@ -176,8 +175,10 @@ func (c *Chrome) newContext(timeout time.Duration) (ctx context.Context, cancel 
 	}
 	if !new {
 		if timeout > 0 {
-			ctx, cancel = context.WithTimeout(c, timeout)
-			ctx, _ = chromedp.NewContext(ctx, c.ctxOpts...)
+			var timeoutCancel, ctxCancel context.CancelFunc
+			ctx, timeoutCancel = context.WithTimeout(c, timeout)
+			ctx, ctxCancel = chromedp.NewContext(ctx, c.ctxOpts...)
+			cancel = func() { ctxCancel(); timeoutCancel() }
 		} else {
 			ctx, cancel = chromedp.NewContext(c, c.ctxOpts...)
 		}
@@ -206,50 +207,6 @@ func (c *Chrome) Close() {
 		close(c.cancel)
 		<-c.done
 	}
-}
-
-func (c *Chrome) SetCookies(u *url.URL, cookies []*http.Cookie) {
-	SetCookies(c, u, cookies)
-}
-
-func (c *Chrome) Cookies(u *url.URL) []*http.Cookie {
-	return Cookies(c, u)
-}
-
-func (c *Chrome) SetStorageItem(storageID *domstorage.StorageID, key, value string) error {
-	return SetStorageItem(c, storageID, key, value)
-}
-
-func (c *Chrome) StorageItems(storageID *domstorage.StorageID) ([]domstorage.Item, error) {
-	return StorageItems(c, storageID)
-}
-
-func (c *Chrome) ListenDownload(url any) <-chan *DownloadEvent {
-	return ListenDownload(c, url)
-}
-
-func (c *Chrome) SetDownload(path string) error {
-	return SetDownload(c, path)
-}
-
-func (c *Chrome) Download(url string, match any) (*DownloadEvent, error) {
-	return Download(c, url, match)
-}
-
-func (c *Chrome) ListenEvent(url any, method string, download bool) <-chan *Event {
-	return ListenEvent(c, url, method, download)
-}
-
-func (c *Chrome) ListenScriptEvent(script string, url any, method, variable string, download bool) (string, <-chan *Event, error) {
-	return ListenScriptEvent(c, script, url, method, variable, download)
-}
-
-func (c *Chrome) ListenScript(script string, url any, method, variable string, result any) error {
-	return ListenScript(c, script, url, method, variable, result)
-}
-
-func (c *Chrome) EnableFetch(fn func(*fetch.EventRequestPaused) bool) error {
-	return EnableFetch(c, fn)
 }
 
 func (c *Chrome) Run(actions ...chromedp.Action) error {
