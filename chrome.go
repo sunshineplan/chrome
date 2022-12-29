@@ -12,8 +12,6 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-var UnsetWebDriver = AddScriptToEvaluateOnNewDocument("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
-
 var (
 	_ http.CookieJar  = &Chrome{}
 	_ context.Context = &Chrome{}
@@ -41,7 +39,7 @@ func Headless(webdriver bool) *Chrome {
 	if webdriver {
 		return New("")
 	}
-	return New("").AddActions(UnsetWebDriver)
+	return New("").AddFlags(chromedp.Flag("disable-blink-features", "AutomationControlled"))
 }
 
 func Headful(webdriver bool) *Chrome {
@@ -49,7 +47,7 @@ func Headful(webdriver bool) *Chrome {
 	if webdriver {
 		return chrome
 	}
-	return chrome.AddActions(UnsetWebDriver)
+	return chrome.AddFlags(chromedp.Flag("disable-blink-features", "AutomationControlled"))
 }
 
 func Remote(url string) *Chrome {
