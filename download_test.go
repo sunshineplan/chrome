@@ -8,7 +8,7 @@ import (
 )
 
 func TestDownload(t *testing.T) {
-	chrome := Headless(true)
+	chrome := Headless()
 	defer chrome.Close()
 
 	wd, err := os.Getwd()

@@ -8,10 +8,13 @@ import (
 )
 
 func TestStorage(t *testing.T) {
-	chrome := Headless(true)
+	chrome := Headless()
 	defer chrome.Close()
 
-	if err := chrome.Run(chromedp.Navigate("https://github.com/sunshineplan/chrome")); err != nil {
+	if err := chrome.Run(
+		chromedp.Navigate("https://github.com/sunshineplan/chrome"),
+		chromedp.WaitVisible("html"),
+	); err != nil {
 		t.Fatal(err)
 	}
 

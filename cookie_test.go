@@ -9,7 +9,7 @@ import (
 )
 
 func TestCookie(t *testing.T) {
-	chrome := Headless(true)
+	chrome := Headless()
 	defer chrome.Close()
 
 	u := &url.URL{Scheme: "https", Host: "github.com"}

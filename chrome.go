@@ -35,19 +35,12 @@ type Chrome struct {
 
 func New(url string) *Chrome { return &Chrome{url: url, cancel: make(chan struct{})} }
 
-func Headless(webdriver bool) *Chrome {
-	if webdriver {
-		return New("")
-	}
-	return New("").AddFlags(chromedp.Flag("disable-blink-features", "AutomationControlled"))
+func Headless() *Chrome {
+	return New("")
 }
 
-func Headful(webdriver bool) *Chrome {
-	chrome := New("").AddFlags(chromedp.Flag("headless", false))
-	if webdriver {
-		return chrome
-	}
-	return chrome.AddFlags(chromedp.Flag("disable-blink-features", "AutomationControlled"))
+func Headful() *Chrome {
+	return New("").AddFlags(chromedp.Flag("headless", false))
 }
 
 func Remote(url string) *Chrome {
@@ -105,6 +98,10 @@ func (c *Chrome) Proxy(proxy string) *Chrome {
 func (c *Chrome) AddFlags(flags ...chromedp.ExecAllocatorOption) *Chrome {
 	c.flags = append(c.flags, flags...)
 	return c
+}
+
+func (c *Chrome) DisableAutomationControlled() *Chrome {
+	return c.AddFlags(chromedp.Flag("disable-blink-features", "AutomationControlled"))
 }
 
 func (c *Chrome) AddContextOptions(opts ...chromedp.ContextOption) *Chrome {

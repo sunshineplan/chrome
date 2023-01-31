@@ -3,7 +3,7 @@ module github.com/sunshineplan/chrome
 go 1.19
 
 require (
-	github.com/chromedp/cdproto v0.0.0-20230109101555-6b041c6303cc
+	github.com/chromedp/cdproto v0.0.0-20230130203205-31e3d8a04b57
 	github.com/chromedp/chromedp v0.8.7
 )
 
@@ -14,5 +14,5 @@ require (
 	github.com/gobwas/ws v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	golang.org/x/sys v0.3.0 // indirect
+	golang.org/x/sys v0.4.0 // indirect
 )
