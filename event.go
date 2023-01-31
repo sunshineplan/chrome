@@ -67,7 +67,6 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 		for {
 			select {
 			case <-ctx.Done():
-				close(c)
 				return
 			case e := <-done:
 				if download {
