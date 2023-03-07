@@ -15,7 +15,7 @@ func TestStorage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	storageID := &domstorage.StorageID{SecurityOrigin: "https://github.com"}
+	storageID := &domstorage.StorageID{StorageKey: "https://github.com/"}
 	if err := chrome.SetStorageItem(storageID, "test", "value"); err != nil {
 		t.Fatal(err)
 	}
