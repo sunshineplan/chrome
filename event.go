@@ -54,6 +54,9 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 		case *network.EventResponseReceived:
 			if v, ok := m.Load(ev.RequestID); ok {
 				v.(*Event).Response = ev
+				if v.(*Event).Request.Request.Method == "HEAD" {
+					go func() { done <- v.(*Event) }()
+				}
 			}
 		case *network.EventLoadingFinished:
 			if v, ok := m.Load(ev.RequestID); ok {
