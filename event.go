@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -15,8 +15,6 @@ import (
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
 )
-
-var Debug bool
 
 type Event struct {
 	Request  *network.EventRequestWillBeSent
@@ -80,9 +78,7 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 							return
 						}),
 					); err != nil {
-						if Debug {
-							log.Print(err)
-						}
+						slog.Debug(err.Error())
 					}
 				}
 				c <- e
