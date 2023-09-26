@@ -1,13 +1,23 @@
 package chrome
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/chromedp/cdproto/browser"
 )
 
 func TestDownload(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Disposition", `attachment; filename="test.txt"`)
+		http.ServeContent(w, r, "test.txt", time.Time{}, strings.NewReader("test download"))
+	}))
+	defer ts.Close()
+
 	chrome := Headless()
 	defer chrome.Close()
 
@@ -20,15 +30,15 @@ func TestDownload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := chrome.Download("https://github.com/sunshineplan/chrome/archive/refs/heads/main.zip", nil)
+	res, err := chrome.Download(ts.URL, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if expect := "https://codeload.github.com/sunshineplan/chrome/zip/refs/heads/main"; res.Begin.URL != expect {
+	if expect := ts.URL + "/"; res.Begin.URL != expect {
 		t.Errorf("expected %q; got %q", expect, res.Begin.URL)
 	}
-	if expect := "chrome-main.zip"; res.Begin.SuggestedFilename != expect {
+	if expect := "test.txt"; res.Begin.SuggestedFilename != expect {
 		t.Errorf("expected %q; got %q", expect, res.Begin.SuggestedFilename)
 	}
 	if res.Begin.GUID != res.Progress.GUID {

@@ -1,7 +1,9 @@
 package chrome
 
 import (
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 
@@ -9,12 +11,17 @@ import (
 )
 
 func TestCookie(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Test")
+	}))
+	defer ts.Close()
+
 	chrome := Headless()
 	defer chrome.Close()
 
-	u := &url.URL{Scheme: "https", Host: "github.com"}
+	u, _ := url.Parse(ts.URL)
 	chrome.SetCookies(u, []*http.Cookie{{Name: "test", Value: "value"}})
-	if err := chrome.Run(chromedp.Navigate("https://github.com/sunshineplan/chrome")); err != nil {
+	if err := chrome.Run(chromedp.Navigate(ts.URL)); err != nil {
 		t.Fatal(err)
 	}
 	var found bool
