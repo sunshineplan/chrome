@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"sync"
 	"time"
@@ -36,7 +37,16 @@ type Chrome struct {
 func New(url string) *Chrome { return &Chrome{url: url, cancel: make(chan struct{})} }
 
 func Headless() *Chrome {
-	return New("")
+	c := New("")
+	defer c.Close()
+	var userAgent string
+	if err := c.Run(chromedp.Evaluate("navigator.userAgent", &userAgent)); err != nil {
+		panic(err)
+	}
+	re := regexp.MustCompile(`HeadlessChrome/(\d+)\.\d+.\d+.\d+`)
+	return New("").
+		AddFlags(chromedp.Flag("disable-features", "UserAgentClientHint")).
+		UserAgent(re.ReplaceAllString(userAgent, fmt.Sprintf("Chrome/%s.0.0.0", re.FindStringSubmatch(userAgent)[1])))
 }
 
 func Headful() *Chrome {
