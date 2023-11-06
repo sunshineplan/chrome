@@ -44,9 +44,7 @@ func Headless() *Chrome {
 		panic(err)
 	}
 	re := regexp.MustCompile(`HeadlessChrome/(\d+)\.\d+.\d+.\d+`)
-	return New("").
-		AddFlags(chromedp.Flag("disable-features", "UserAgentClientHint")).
-		UserAgent(re.ReplaceAllString(userAgent, fmt.Sprintf("Chrome/%s.0.0.0", re.FindStringSubmatch(userAgent)[1])))
+	return New("").UserAgent(re.ReplaceAllString(userAgent, fmt.Sprintf("Chrome/%s.0.0.0", re.FindStringSubmatch(userAgent)[1])))
 }
 
 func Headful() *Chrome {
@@ -97,7 +95,7 @@ func (c *Chrome) Value(key any) any {
 
 func (c *Chrome) UserAgent(useragent string) *Chrome {
 	c.useragent = useragent
-	return c
+	return c.DisableUserAgentClientHint()
 }
 
 func (c *Chrome) Proxy(proxy string) *Chrome {
@@ -108,6 +106,10 @@ func (c *Chrome) Proxy(proxy string) *Chrome {
 func (c *Chrome) AddFlags(flags ...chromedp.ExecAllocatorOption) *Chrome {
 	c.flags = append(c.flags, flags...)
 	return c
+}
+
+func (c *Chrome) DisableUserAgentClientHint() *Chrome {
+	return c.AddFlags(chromedp.Flag("disable-features", "UserAgentClientHint"))
 }
 
 func (c *Chrome) DisableAutomationControlled() *Chrome {
