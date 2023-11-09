@@ -21,6 +21,8 @@ var (
 type Chrome struct {
 	url       string
 	useragent string
+	width     int
+	height    int
 	proxy     string
 
 	flags   []chromedp.ExecAllocatorOption
@@ -34,21 +36,31 @@ type Chrome struct {
 	done   chan struct{}
 }
 
-func New(url string) *Chrome { return &Chrome{url: url, cancel: make(chan struct{})} }
-
-func Headless() *Chrome {
+func getInfo() (userAgent string, width, height int) {
 	c := New("")
 	defer c.Close()
-	var userAgent string
-	if err := c.Run(chromedp.Evaluate("navigator.userAgent", &userAgent)); err != nil {
+	if err := c.Run(
+		chromedp.Evaluate("navigator.userAgent", &userAgent),
+		chromedp.Evaluate("window.screen.width", &width),
+		chromedp.Evaluate("window.screen.height", &height),
+	); err != nil {
 		panic(err)
 	}
 	re := regexp.MustCompile(`HeadlessChrome/(\d+)\.\d+.\d+.\d+`)
-	return New("").UserAgent(re.ReplaceAllString(userAgent, fmt.Sprintf("Chrome/%s.0.0.0", re.FindStringSubmatch(userAgent)[1])))
+	userAgent = re.ReplaceAllString(userAgent, fmt.Sprintf("Chrome/%s.0.0.0", re.FindStringSubmatch(userAgent)[1]))
+	return
+}
+
+func New(url string) *Chrome { return &Chrome{url: url, cancel: make(chan struct{})} }
+
+func Headless() *Chrome {
+	userAgent, width, height := getInfo()
+	return New("").UserAgent(userAgent).WindowSize(width, height)
 }
 
 func Headful() *Chrome {
-	return New("").AddFlags(chromedp.Flag("headless", false))
+	_, width, height := getInfo()
+	return New("").WindowSize(width, height).AddFlags(chromedp.Flag("headless", false))
 }
 
 func Remote(url string) *Chrome {
@@ -98,6 +110,11 @@ func (c *Chrome) UserAgent(useragent string) *Chrome {
 	return c.DisableUserAgentClientHint()
 }
 
+func (c *Chrome) WindowSize(width int, height int) *Chrome {
+	c.width, c.height = width, height
+	return c
+}
+
 func (c *Chrome) Proxy(proxy string) *Chrome {
 	c.proxy = proxy
 	return c
@@ -137,6 +154,9 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, bool
 			opts := chromedp.DefaultExecAllocatorOptions[:]
 			if c.useragent != "" {
 				opts = append(opts, chromedp.UserAgent(c.useragent))
+			}
+			if c.width != 0 && c.height != 0 {
+				opts = append(opts, chromedp.WindowSize(c.width, c.height))
 			}
 			if c.proxy != "" {
 				opts = append(opts, chromedp.ProxyServer(c.proxy))
