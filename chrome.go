@@ -37,7 +37,7 @@ type Chrome struct {
 }
 
 func getInfo() (userAgent string, width, height int) {
-	c := New("")
+	c := New("").headless()
 	defer c.Close()
 	if err := c.Run(
 		chromedp.Evaluate("navigator.userAgent", &userAgent),
@@ -53,14 +53,22 @@ func getInfo() (userAgent string, width, height int) {
 
 func New(url string) *Chrome { return &Chrome{url: url, cancel: make(chan struct{})} }
 
+func (c *Chrome) headless() *Chrome {
+	return c.AddFlags(
+		chromedp.Flag("headless", "new"),
+		chromedp.Flag("hide-scrollbars", true),
+		chromedp.Flag("mute-audio", true),
+	)
+}
+
 func Headless() *Chrome {
 	userAgent, width, height := getInfo()
-	return New("").UserAgent(userAgent).WindowSize(width, height)
+	return New("").UserAgent(userAgent).WindowSize(width, height).headless()
 }
 
 func Headful() *Chrome {
 	_, width, height := getInfo()
-	return New("").WindowSize(width, height).AddFlags(chromedp.Flag("headless", false))
+	return New("").WindowSize(width, height)
 }
 
 func Remote(url string) *Chrome {
@@ -125,6 +133,10 @@ func (c *Chrome) AddFlags(flags ...chromedp.ExecAllocatorOption) *Chrome {
 	return c
 }
 
+func (c *Chrome) AutoOpenDevtools() *Chrome {
+	return c.AddFlags(chromedp.Flag("auto-open-devtools-for-tabs", true))
+}
+
 func (c *Chrome) DisableUserAgentClientHint() *Chrome {
 	return c.AddFlags(chromedp.Flag("disable-features", "UserAgentClientHint"))
 }
@@ -143,6 +155,39 @@ func (c *Chrome) AddActions(actions ...chromedp.Action) *Chrome {
 	return c
 }
 
+var DefaultExecAllocatorOptions = [...]chromedp.ExecAllocatorOption{
+	// https://github.com/puppeteer/puppeteer/blob/main/packages/puppeteer-core/src/node/ChromeLauncher.ts
+	chromedp.Flag("allow-pre-commit-input", true),
+	chromedp.Flag("disable-background-networking", true),
+	chromedp.Flag("disable-background-timer-throttling", true),
+	chromedp.Flag("disable-backgrounding-occluded-windows", true),
+	chromedp.Flag("disable-breakpad", true),
+	chromedp.Flag("disable-client-side-phishing-detection", true),
+	chromedp.Flag("disable-component-extensions-with-background-pages", true),
+	chromedp.Flag("disable-component-update", true),
+	chromedp.Flag("disable-default-apps", true),
+	chromedp.Flag("disable-dev-shm-usage", true),
+	chromedp.Flag("disable-extensions", true),
+	chromedp.Flag("disable-field-trial-config", true),
+	chromedp.Flag("disable-hang-monitor", true),
+	chromedp.Flag("disable-infobars", true),
+	chromedp.Flag("disable-ipc-flooding-protection", true),
+	chromedp.Flag("disable-popup-blocking", true),
+	chromedp.Flag("disable-prompt-on-repost", true),
+	chromedp.Flag("disable-renderer-backgrounding", true),
+	chromedp.Flag("disable-search-engine-choice-screen", true),
+	chromedp.Flag("disable-sync", true),
+	chromedp.Flag("enable-automation", true),
+	chromedp.Flag("export-tagged-pdf", true),
+	// chromedp.Flag("force-color-profile", "srgb"),
+	chromedp.Flag("metrics-recording-only", true),
+	chromedp.Flag("no-first-run", true),
+	chromedp.Flag("password-store", "basic"),
+	chromedp.Flag("use-mock-keychain", true),
+	chromedp.Flag("disable-features", "Translate,AcceptCHFrame,MediaRouter,OptimizationHints,ProcessPerSiteUpToMainFrameThreshold"),
+	chromedp.Flag("enable-features", "NetworkServiceInProcess2"),
+}
+
 func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -151,7 +196,7 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, bool
 	if c.ctx == nil || (reset && c.Err() != nil) {
 		var allocatorCancel, ctxCancel context.CancelFunc
 		if c.url == "" {
-			opts := chromedp.DefaultExecAllocatorOptions[:]
+			opts := DefaultExecAllocatorOptions[:]
 			if c.useragent != "" {
 				opts = append(opts, chromedp.UserAgent(c.useragent))
 			}
