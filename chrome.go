@@ -219,16 +219,16 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, bool
 			panic(err)
 		}
 
-		go func() {
+		go func(fn1, fn2 func()) {
 			select {
 			case <-c.cancel:
 			case <-ctx.Done():
 			}
-			ctxCancel()
-			allocatorCancel()
+			fn1()
+			fn2()
 			c.cancel = nil
 			close(c.done)
-		}()
+		}(ctxCancel, allocatorCancel)
 	}
 
 	return c, new
