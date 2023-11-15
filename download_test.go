@@ -1,6 +1,7 @@
 package chrome
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,19 +19,22 @@ func TestDownload(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	chrome := Headless()
-	defer chrome.Close()
+	c := Headless()
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(c, 10*time.Second)
+	defer cancel()
 
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := chrome.SetDownload(wd); err != nil {
+	if err := SetDownload(ctx, wd); err != nil {
 		t.Fatal(err)
 	}
 
-	res, err := chrome.Download(ts.URL, nil)
+	res, err := Download(ctx, ts.URL, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
