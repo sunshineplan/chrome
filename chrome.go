@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,8 +46,7 @@ func getInfo() (userAgent string, width, height int) {
 	); err != nil {
 		panic(err)
 	}
-	re := regexp.MustCompile(`HeadlessChrome/(\d+)\.\d+.\d+.\d+`)
-	userAgent = re.ReplaceAllString(userAgent, fmt.Sprintf("Chrome/%s.0.0.0", re.FindStringSubmatch(userAgent)[1]))
+	userAgent = strings.ReplaceAll(userAgent, "Headless", "")
 	return
 }
 
@@ -115,7 +114,7 @@ func (c *Chrome) Value(key any) any {
 
 func (c *Chrome) UserAgent(useragent string) *Chrome {
 	c.useragent = useragent
-	return c.DisableUserAgentClientHint()
+	return c
 }
 
 func (c *Chrome) WindowSize(width int, height int) *Chrome {
