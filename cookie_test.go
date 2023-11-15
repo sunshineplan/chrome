@@ -1,11 +1,13 @@
 package chrome
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/chromedp/chromedp"
 )
@@ -16,16 +18,19 @@ func TestCookie(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	chrome := Headless()
-	defer chrome.Close()
+	c := Headless()
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(c, 10*time.Second)
+	defer cancel()
 
 	u, _ := url.Parse(ts.URL)
-	chrome.SetCookies(u, []*http.Cookie{{Name: "test", Value: "value"}})
-	if err := chrome.Run(chromedp.Navigate(ts.URL)); err != nil {
+	SetCookies(ctx, u, []*http.Cookie{{Name: "test", Value: "value"}})
+	if err := chromedp.Run(ctx, chromedp.Navigate(ts.URL)); err != nil {
 		t.Fatal(err)
 	}
 	var found bool
-	for _, i := range chrome.Cookies(u) {
+	for _, i := range Cookies(ctx, u) {
 		if i.Name == "test" && i.Value == "value" {
 			found = true
 			break

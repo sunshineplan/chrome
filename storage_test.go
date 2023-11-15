@@ -1,10 +1,12 @@
 package chrome
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/chromedp/cdproto/domstorage"
 	"github.com/chromedp/chromedp"
@@ -16,18 +18,21 @@ func TestStorage(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	chrome := Headless()
-	defer chrome.Close()
+	c := Headless()
+	defer c.Close()
 
-	if err := chrome.Run(chromedp.Navigate(ts.URL)); err != nil {
+	ctx, cancel := context.WithTimeout(c, 10*time.Second)
+	defer cancel()
+
+	if err := chromedp.Run(ctx, chromedp.Navigate(ts.URL)); err != nil {
 		t.Fatal(err)
 	}
 
 	storageID := &domstorage.StorageID{StorageKey: domstorage.SerializedStorageKey(ts.URL + "/")}
-	if err := chrome.SetStorageItem(storageID, "test", "value"); err != nil {
+	if err := SetStorageItem(ctx, storageID, "test", "value"); err != nil {
 		t.Fatal(err)
 	}
-	items, err := chrome.StorageItems(storageID)
+	items, err := StorageItems(ctx, storageID)
 	if err != nil {
 		t.Fatal(err)
 	}
