@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 )
 
@@ -58,6 +59,11 @@ func (c *Chrome) headless() *Chrome {
 		chromedp.Flag("hide-scrollbars", true),
 		chromedp.Flag("mute-audio", true),
 	)
+}
+
+func UserAgent() string {
+	userAgent, _, _ := getInfo()
+	return userAgent
 }
 
 func Headless() *Chrome {
@@ -282,6 +288,10 @@ func (c *Chrome) Close() {
 
 func (c *Chrome) Run(actions ...chromedp.Action) error {
 	return chromedp.Run(c, actions...)
+}
+
+func (c *Chrome) WaitNewTarget(fn func(*target.Info) bool) <-chan target.ID {
+	return chromedp.WaitNewTarget(c, fn)
 }
 
 func AddScriptToEvaluateOnNewDocument(script string) chromedp.Action {
