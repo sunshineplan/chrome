@@ -40,7 +40,7 @@ type Chrome struct {
 func getInfo() (userAgent string, width, height int) {
 	c := New("").headless()
 	defer c.Close()
-	ctx, cancel := context.WithTimeout(c, 10*time.Second)
+	ctx, cancel := context.WithTimeout(c, time.Minute)
 	defer cancel()
 	if err := chromedp.Run(
 		ctx,
