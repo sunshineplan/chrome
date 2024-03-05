@@ -40,12 +40,15 @@ type Chrome struct {
 func getInfo() (userAgent string, width, height int) {
 	c := New("").headless()
 	defer c.Close()
-	if err := c.Run(
+	ctx, cancel := context.WithTimeout(c, 10*time.Second)
+	defer cancel()
+	if err := chromedp.Run(
+		ctx,
 		chromedp.Evaluate("navigator.userAgent", &userAgent),
 		chromedp.Evaluate("window.screen.width", &width),
 		chromedp.Evaluate("window.screen.height", &height),
 	); err != nil {
-		panic(err)
+		panic("failed to get chrome information: " + err.Error())
 	}
 	userAgent = strings.ReplaceAll(userAgent, "Headless", "")
 	return
