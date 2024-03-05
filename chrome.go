@@ -142,6 +142,14 @@ func (c *Chrome) AutoOpenDevtools() *Chrome {
 	return c.AddFlags(chromedp.Flag("auto-open-devtools-for-tabs", true))
 }
 
+func (c *Chrome) Incognito() *Chrome {
+	return c.AddFlags(chromedp.Flag("incognito", true))
+}
+
+func (c *Chrome) Guest() *Chrome {
+	return c.AddFlags(chromedp.Flag("guest", true))
+}
+
 func (c *Chrome) DisableUserAgentClientHint() *Chrome {
 	return c.AddFlags(chromedp.Flag("disable-features", "UserAgentClientHint"))
 }
@@ -184,6 +192,7 @@ var DefaultExecAllocatorOptions = [...]chromedp.ExecAllocatorOption{
 	chromedp.Flag("disable-sync", true),
 	chromedp.Flag("enable-automation", true),
 	chromedp.Flag("export-tagged-pdf", true),
+	chromedp.Flag("generate-pdf-document-outline", true),
 	// chromedp.Flag("force-color-profile", "srgb"),
 	chromedp.Flag("metrics-recording-only", true),
 	chromedp.Flag("no-first-run", true),
