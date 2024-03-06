@@ -37,23 +37,6 @@ type Chrome struct {
 	done   chan struct{}
 }
 
-func getInfo() (userAgent string, width, height int) {
-	c := New("").headless()
-	defer c.Close()
-	ctx, cancel := context.WithTimeout(c, time.Minute)
-	defer cancel()
-	if err := chromedp.Run(
-		ctx,
-		chromedp.Evaluate("navigator.userAgent", &userAgent),
-		chromedp.Evaluate("window.screen.width", &width),
-		chromedp.Evaluate("window.screen.height", &height),
-	); err != nil {
-		panic("failed to get chrome information: " + err.Error())
-	}
-	userAgent = strings.ReplaceAll(userAgent, "Headless", "")
-	return
-}
-
 func New(url string) *Chrome { return &Chrome{url: url, cancel: make(chan struct{})} }
 
 func (c *Chrome) headless() *Chrome {
@@ -64,19 +47,24 @@ func (c *Chrome) headless() *Chrome {
 	)
 }
 
-func UserAgent() string {
-	userAgent, _, _ := getInfo()
-	return userAgent
+func UserAgent() (userAgent string) {
+	c := New("").headless()
+	defer c.Close()
+	ctx, cancel := context.WithTimeout(c, time.Minute)
+	defer cancel()
+	if err := chromedp.Run(ctx, chromedp.Evaluate("navigator.userAgent", &userAgent)); err != nil {
+		panic("failed to get chrome useragent: " + err.Error())
+	}
+	userAgent = strings.ReplaceAll(userAgent, "Headless", "")
+	return
 }
 
 func Headless() *Chrome {
-	userAgent, width, height := getInfo()
-	return New("").UserAgent(userAgent).WindowSize(width, height).headless()
+	return New("").UserAgent(UserAgent()).headless()
 }
 
 func Headful() *Chrome {
-	_, width, height := getInfo()
-	return New("").WindowSize(width, height)
+	return New("")
 }
 
 func Remote(url string) *Chrome {
@@ -203,6 +191,8 @@ var DefaultExecAllocatorOptions = [...]chromedp.ExecAllocatorOption{
 	chromedp.Flag("use-mock-keychain", true),
 	chromedp.Flag("disable-features", "Translate,AcceptCHFrame,MediaRouter,OptimizationHints,ProcessPerSiteUpToMainFrameThreshold"),
 	chromedp.Flag("enable-features", "NetworkServiceInProcess2"),
+
+	chromedp.Flag("start-maximized", true),
 }
 
 func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, bool) {
