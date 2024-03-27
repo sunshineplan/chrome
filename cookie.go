@@ -63,6 +63,8 @@ func Cookies(ctx context.Context, u *url.URL) (res []*http.Cookie) {
 	return
 }
 
+var _ http.CookieJar = &Chrome{}
+
 func (c *Chrome) SetCookies(u *url.URL, cookies []*http.Cookie) {
 	SetCookies(c, u, cookies)
 }
