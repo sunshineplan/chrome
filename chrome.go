@@ -3,6 +3,8 @@ package chrome
 import (
 	"context"
 	"fmt"
+	"io"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,6 +21,7 @@ type Chrome struct {
 	width     int
 	height    int
 	proxy     string
+	debugger  *log.Logger
 
 	flags   []chromedp.ExecAllocatorOption
 	ctxOpts []chromedp.ContextOption
@@ -31,7 +34,10 @@ type Chrome struct {
 	done   chan struct{}
 }
 
-func New(url string) *Chrome { return &Chrome{url: url, cancel: make(chan struct{})} }
+func New(url string) *Chrome {
+	c := &Chrome{url: url, debugger: log.New(io.Discard, "", log.LstdFlags), cancel: make(chan struct{})}
+	return c.AddContextOptions(chromedp.WithDebugf(c.debugger.Printf))
+}
 
 func (c *Chrome) headless() *Chrome {
 	return c.AddFlags(
@@ -73,6 +79,21 @@ func Local(port int) *Chrome {
 		panic("invalid port number: " + strconv.Itoa(port))
 	}
 	return Remote(fmt.Sprintf("ws://localhost:%d", port))
+}
+
+func (c *Chrome) SetDebuggerOutput(w io.Writer) *Chrome {
+	c.debugger.SetOutput(w)
+	return c
+}
+
+func (c *Chrome) SetDebuggerPrefix(prefix string) *Chrome {
+	c.debugger.SetPrefix(prefix)
+	return c
+}
+
+func (c *Chrome) SetDebuggerFlags(flag int) *Chrome {
+	c.debugger.SetFlags(flag)
+	return c
 }
 
 func (c *Chrome) UserAgent(useragent string) *Chrome {

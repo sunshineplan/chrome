@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -18,7 +19,7 @@ func TestCookie(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := Headless()
+	c := Headless().SetDebuggerOutput(os.Stderr)
 	defer c.Close()
 
 	ctx, cancel := context.WithTimeout(c, 10*time.Second)
