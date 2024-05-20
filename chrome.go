@@ -159,7 +159,6 @@ var DefaultExecAllocatorOptions = [...]chromedp.ExecAllocatorOption{
 	chromedp.Flag("disable-default-apps", true),
 	chromedp.Flag("disable-dev-shm-usage", true),
 	chromedp.Flag("disable-extensions", true),
-	chromedp.Flag("disable-field-trial-config", true),
 	chromedp.Flag("disable-hang-monitor", true),
 	chromedp.Flag("disable-infobars", true),
 	chromedp.Flag("disable-ipc-flooding-protection", true),
@@ -176,8 +175,7 @@ var DefaultExecAllocatorOptions = [...]chromedp.ExecAllocatorOption{
 	chromedp.Flag("no-first-run", true),
 	chromedp.Flag("password-store", "basic"),
 	chromedp.Flag("use-mock-keychain", true),
-	chromedp.Flag("disable-features", "Translate,AcceptCHFrame,MediaRouter,OptimizationHints,ProcessPerSiteUpToMainFrameThreshold"),
-	chromedp.Flag("enable-features", "NetworkServiceInProcess2"),
+	chromedp.Flag("disable-features", "Translate,AcceptCHFrame,MediaRouter,OptimizationHints,ProcessPerSiteUpToMainFrameThreshold,IsolateSandboxedIframes"),
 
 	chromedp.Flag("start-maximized", true),
 }
