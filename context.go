@@ -2,6 +2,7 @@ package chrome
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/chromedp/chromedp"
@@ -11,44 +12,42 @@ var _ context.Context = &Chrome{}
 
 func (c *Chrome) Deadline() (deadline time.Time, ok bool) {
 	c.mu.Lock()
-	if c.ctx == nil {
-		c.context(context.Background(), false)
+	defer c.mu.Unlock()
+	if _, _, _, err := c.context(context.Background(), false); err != nil {
+		panic(err)
 	}
-	c.mu.Unlock()
 	return c.ctx.Deadline()
 }
 
 func (c *Chrome) Done() <-chan struct{} {
 	c.mu.Lock()
-	if c.ctx == nil {
-		c.context(context.Background(), false)
+	defer c.mu.Unlock()
+	if _, _, _, err := c.context(context.Background(), false); err != nil {
+		panic(err)
 	}
-	c.mu.Unlock()
 	return c.ctx.Done()
 }
 
 func (c *Chrome) Err() error {
 	c.mu.Lock()
-	if c.ctx == nil {
-		c.context(context.Background(), false)
+	defer c.mu.Unlock()
+	if _, _, _, err := c.context(context.Background(), false); err != nil {
+		return nil
 	}
-	c.mu.Unlock()
 	return c.ctx.Err()
 }
 
 func (c *Chrome) Value(key any) any {
 	c.mu.Lock()
-	if c.ctx == nil {
-		c.context(context.Background(), false)
+	defer c.mu.Unlock()
+	if _, _, _, err := c.context(context.Background(), false); err != nil {
+		return nil
 	}
-	c.mu.Unlock()
 	return c.ctx.Value(key)
 }
 
-func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, bool) {
-	var new bool
+func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, context.CancelFunc, bool, error) {
 	if c.ctx == nil || (c.ctx != nil && reset && c.ctx.Err() != nil) {
-		new = true
 		var allocatorCancel, ctxCancel context.CancelFunc
 		if c.url == "" {
 			opts := DefaultExecAllocatorOptions[:]
@@ -66,25 +65,28 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, bool
 			ctx, allocatorCancel = chromedp.NewRemoteAllocator(ctx, c.url)
 		}
 		c.ctx, ctxCancel = chromedp.NewContext(ctx, c.ctxOpts...)
-		c.cancel, c.done = make(chan struct{}), make(chan struct{})
-		if err := chromedp.Run(c.ctx, c.actions...); err != nil {
+		cancel := func() {
 			ctxCancel()
 			allocatorCancel()
-			panic(err)
 		}
-
-		go func(fn1, fn2 func()) {
+		c.cancel, c.done = make(chan struct{}), make(chan struct{})
+		if err := chromedp.Run(c.ctx, c.actions...); err != nil {
+			cancel()
+			log.Print(err)
+			return nil, nil, false, err
+		}
+		go func() {
 			select {
 			case <-c.cancel:
 			case <-ctx.Done():
 			}
-			fn1()
-			fn2()
+			cancel()
 			c.cancel = nil
 			close(c.done)
-		}(ctxCancel, allocatorCancel)
+		}()
+		return c.ctx, cancel, true, nil
 	}
-	return c, new
+	return c.ctx, nil, false, nil
 }
 
 func (c *Chrome) newContext(timeout time.Duration) (ctx context.Context, cancel context.CancelFunc, err error) {
@@ -93,19 +95,27 @@ func (c *Chrome) newContext(timeout time.Duration) (ctx context.Context, cancel 
 	} else {
 		ctx, cancel = context.WithCancel(context.Background())
 	}
-	if _, new := c.context(ctx, true); !new {
+	var ctxCancel context.CancelFunc
+	var new bool
+	if ctx, ctxCancel, new, err = c.context(ctx, true); err != nil {
+		cancel()
+		return nil, nil, err
+	} else if !new {
+		cancel()
 		if timeout > 0 {
-			var timeoutCancel, ctxCancel context.CancelFunc
-			ctx, timeoutCancel = context.WithTimeout(c, timeout)
+			var timeoutCancel context.CancelFunc
+			ctx, timeoutCancel = context.WithTimeout(c.ctx, timeout)
 			ctx, ctxCancel = chromedp.NewContext(ctx, c.ctxOpts...)
 			cancel = func() { ctxCancel(); timeoutCancel() }
 		} else {
-			ctx, cancel = chromedp.NewContext(c, c.ctxOpts...)
+			ctx, cancel = chromedp.NewContext(c.ctx, c.ctxOpts...)
 		}
-		if err = c.Run(c.actions...); err != nil {
+		if err = chromedp.Run(ctx, c.actions...); err != nil {
 			cancel()
 			return nil, nil, err
 		}
+	} else {
+		cancel = func() { ctxCancel(); cancel() }
 	}
 	return
 }
@@ -123,6 +133,8 @@ func (c *Chrome) Close() {
 	defer c.mu.Unlock()
 	if c.cancel != nil {
 		close(c.cancel)
-		<-c.done
+		if c.done != nil {
+			<-c.done
+		}
 	}
 }
