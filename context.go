@@ -13,26 +13,22 @@ var _ context.Context = &Chrome{}
 func (c *Chrome) Deadline() (deadline time.Time, ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if _, _, _, err := c.context(context.Background(), false); err != nil {
-		panic(err)
-	}
-	return c.ctx.Deadline()
+	ctx, _, _, _ := c.context(context.Background(), false)
+	return ctx.Deadline()
 }
 
 func (c *Chrome) Done() <-chan struct{} {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if _, _, _, err := c.context(context.Background(), false); err != nil {
-		panic(err)
-	}
-	return c.ctx.Done()
+	ctx, _, _, _ := c.context(context.Background(), false)
+	return ctx.Done()
 }
 
 func (c *Chrome) Err() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if _, _, _, err := c.context(context.Background(), false); err != nil {
-		return nil
+		return err
 	}
 	return c.ctx.Err()
 }
@@ -40,10 +36,8 @@ func (c *Chrome) Err() error {
 func (c *Chrome) Value(key any) any {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if _, _, _, err := c.context(context.Background(), false); err != nil {
-		return nil
-	}
-	return c.ctx.Value(key)
+	ctx, _, _, _ := c.context(context.Background(), false)
+	return ctx.Value(key)
 }
 
 func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, context.CancelFunc, bool, error) {
@@ -73,7 +67,7 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, cont
 		if err := chromedp.Run(c.ctx, c.actions...); err != nil {
 			cancel()
 			log.Print(err)
-			return nil, nil, false, err
+			return c.ctx, nil, false, err
 		}
 		go func() {
 			select {
