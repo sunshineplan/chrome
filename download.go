@@ -40,7 +40,7 @@ func ListenDownload(ctx context.Context, url any) <-chan *DownloadEvent {
 			}
 		}
 	})
-
+	go func() { <-ctx.Done(); close(c) }()
 	return c
 }
 
