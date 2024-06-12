@@ -53,6 +53,9 @@ func UserAgent() (userAgent string) {
 	ctx, cancel := context.WithTimeout(c, time.Minute)
 	defer cancel()
 	if err := chromedp.Run(ctx, chromedp.Evaluate("navigator.userAgent", &userAgent)); err != nil {
+		if err == context.Canceled {
+			err = context.Cause(ctx)
+		}
 		panic("failed to get chrome useragent: " + err.Error())
 	}
 	userAgent = strings.ReplaceAll(userAgent, "Headless", "")
