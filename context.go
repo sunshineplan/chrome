@@ -2,7 +2,6 @@ package chrome
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/chromedp/chromedp"
@@ -10,7 +9,7 @@ import (
 
 var _ context.Context = &Chrome{}
 
-func (c *Chrome) Deadline() (deadline time.Time, ok bool) {
+func (c *Chrome) Deadline() (time.Time, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	ctx, _, _, _ := c.context(context.Background(), false)
@@ -27,10 +26,8 @@ func (c *Chrome) Done() <-chan struct{} {
 func (c *Chrome) Err() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if _, _, _, err := c.context(context.Background(), false); err != nil {
-		return err
-	}
-	return c.ctx.Err()
+	ctx, _, _, _ := c.context(context.Background(), false)
+	return ctx.Err()
 }
 
 func (c *Chrome) Value(key any) any {
@@ -42,7 +39,8 @@ func (c *Chrome) Value(key any) any {
 
 func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, context.CancelFunc, bool, error) {
 	if c.ctx == nil || (c.ctx != nil && reset && c.ctx.Err() != nil) {
-		var allocatorCancel, ctxCancel context.CancelFunc
+		ctx, cancelCause := context.WithCancelCause(ctx)
+		var allocatorCancel context.CancelFunc
 		if c.url == "" {
 			opts := DefaultExecAllocatorOptions[:]
 			if c.useragent != "" {
@@ -58,17 +56,14 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, cont
 		} else {
 			ctx, allocatorCancel = chromedp.NewRemoteAllocator(ctx, c.url)
 		}
+		var ctxCancel context.CancelFunc
 		c.ctx, ctxCancel = chromedp.NewContext(ctx, c.ctxOpts...)
 		cancel := func() {
+			cancelCause(nil)
 			ctxCancel()
 			allocatorCancel()
 		}
 		c.cancel, c.done = make(chan struct{}), make(chan struct{})
-		if err := chromedp.Run(c.ctx, c.actions...); err != nil {
-			cancel()
-			log.Print(err)
-			return c.ctx, nil, false, err
-		}
 		go func() {
 			select {
 			case <-c.cancel:
@@ -78,6 +73,12 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, cont
 			c.cancel = nil
 			close(c.done)
 		}()
+		if err := chromedp.Run(c.ctx, c.actions...); err != nil {
+			cancelCause(err)
+			ctxCancel()
+			allocatorCancel()
+			return c.ctx, nil, false, err
+		}
 		return c.ctx, cancel, true, nil
 	}
 	return c.ctx, nil, false, nil
