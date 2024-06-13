@@ -10,34 +10,28 @@ import (
 var _ context.Context = &Chrome{}
 
 func (c *Chrome) Deadline() (time.Time, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	ctx, _, _, _ := c.context(context.Background(), false)
 	return ctx.Deadline()
 }
 
 func (c *Chrome) Done() <-chan struct{} {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	ctx, _, _, _ := c.context(context.Background(), false)
 	return ctx.Done()
 }
 
 func (c *Chrome) Err() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	ctx, _, _, _ := c.context(context.Background(), false)
 	return ctx.Err()
 }
 
 func (c *Chrome) Value(key any) any {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	ctx, _, _, _ := c.context(context.Background(), false)
 	return ctx.Value(key)
 }
 
 func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, context.CancelFunc, bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.ctx == nil || (c.ctx != nil && reset && c.ctx.Err() != nil) {
 		ctx, cancelCause := context.WithCancelCause(ctx)
 		var allocatorCancel context.CancelFunc
@@ -70,7 +64,6 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, cont
 			case <-ctx.Done():
 			}
 			cancel()
-			c.cancel = nil
 			close(c.done)
 		}()
 		if err := chromedp.Run(c.ctx, c.actions...); err != nil {
