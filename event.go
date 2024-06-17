@@ -16,6 +16,8 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
+var DefaultChannelBufferCapacity = 8
+
 type Event struct {
 	Request  *network.EventRequestWillBeSent
 	Response *network.EventResponseReceived
@@ -41,8 +43,13 @@ func (e *Event) String() string {
 }
 
 func ListenEvent(ctx context.Context, url any, method string, download bool) <-chan *Event {
+	c, ec := make(chan *Event, DefaultChannelBufferCapacity), make(chan *Event, DefaultChannelBufferCapacity)
+	go func() {
+		<-ctx.Done()
+		close(ec)
+		close(c)
+	}()
 	var m sync.Map
-	done := make(chan *Event, 1)
 	chromedp.ListenTarget(ctx, func(v any) {
 		switch ev := v.(type) {
 		case *network.EventRequestWillBeSent:
@@ -53,38 +60,37 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 			if v, ok := m.Load(ev.RequestID); ok {
 				v.(*Event).Response = ev
 				if v.(*Event).Request.Request.Method == "HEAD" {
-					go func() { done <- v.(*Event) }()
+					m.Delete(ev.RequestID)
+					go func() {
+						defer func() { recover() }()
+						ec <- v.(*Event)
+					}()
 				}
 			}
 		case *network.EventLoadingFinished:
-			if v, ok := m.Load(ev.RequestID); ok {
-				go func() { done <- v.(*Event) }()
+			if v, ok := m.LoadAndDelete(ev.RequestID); ok {
+				go func() {
+					defer func() { recover() }()
+					ec <- v.(*Event)
+				}()
 			}
 		}
 	})
-
-	c := make(chan *Event, 1)
 	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				close(c)
-				close(done)
-				return
-			case e := <-done:
-				if download {
-					if err := chromedp.Run(
-						ctx,
-						chromedp.ActionFunc(func(ctx context.Context) (err error) {
-							e.Bytes, err = network.GetResponseBody(e.Response.RequestID).Do(ctx)
-							return
-						}),
-					); err != nil {
-						slog.Debug(err.Error())
-					}
+		defer func() { recover() }()
+		for e := range ec {
+			if download {
+				if err := chromedp.Run(
+					ctx,
+					chromedp.ActionFunc(func(ctx context.Context) (err error) {
+						e.Bytes, err = network.GetResponseBody(e.Response.RequestID).Do(ctx)
+						return
+					}),
+				); err != nil {
+					slog.Debug(err.Error())
 				}
-				c <- e
 			}
+			c <- e
 		}
 	}()
 
