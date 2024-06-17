@@ -22,8 +22,12 @@ func (e *DownloadEvent) GUID() string {
 }
 
 func ListenDownload(ctx context.Context, url any) <-chan *DownloadEvent {
+	c := make(chan *DownloadEvent, DefaultChannelBufferCapacity)
+	go func() {
+		<-ctx.Done()
+		close(c)
+	}()
 	var m sync.Map
-	c := make(chan *DownloadEvent, 1)
 	chromedp.ListenTarget(ctx, func(v any) {
 		switch ev := v.(type) {
 		case *browser.EventDownloadWillBegin:
@@ -32,15 +36,16 @@ func ListenDownload(ctx context.Context, url any) <-chan *DownloadEvent {
 			}
 		case *browser.EventDownloadProgress:
 			if v, ok := m.Load(ev.GUID); ok && ev.State == browser.DownloadProgressStateCompleted {
+				m.Delete(ev.GUID)
+				v := v.(*DownloadEvent)
+				v.Progress = ev
 				go func() {
-					v := v.(*DownloadEvent)
-					v.Progress = ev
+					defer func() { recover() }()
 					c <- v
 				}()
 			}
 		}
 	})
-	go func() { <-ctx.Done(); close(c) }()
 	return c
 }
 
