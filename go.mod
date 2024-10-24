@@ -1,6 +1,6 @@
 module github.com/sunshineplan/chrome
 
-go 1.22
+go 1.23
 
 require (
 	github.com/chromedp/cdproto v0.0.0-20241003230502-a4a8f7c660df
