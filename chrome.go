@@ -48,7 +48,7 @@ func (c *Chrome) headless() *Chrome {
 }
 
 func UserAgent() (userAgent string) {
-	c := New("").headless()
+	c := New("").headless().NoSandbox()
 	defer c.Close()
 	ctx, cancel := context.WithTimeout(c, time.Minute)
 	defer cancel()
@@ -129,6 +129,10 @@ func (c *Chrome) Incognito() *Chrome {
 
 func (c *Chrome) Guest() *Chrome {
 	return c.AddFlags(chromedp.Flag("guest", true))
+}
+
+func (c *Chrome) NoSandbox() *Chrome {
+	return c.AddFlags(chromedp.Flag("no-sandbox", true))
 }
 
 func (c *Chrome) DisableUserAgentClientHint() *Chrome {
