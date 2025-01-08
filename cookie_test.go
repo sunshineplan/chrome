@@ -13,13 +13,17 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
+func testHeadless() *Chrome {
+	return Headless().SetDebuggerOutput(os.Stderr).NoSandbox()
+}
+
 func TestCookie(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "Test")
 	}))
 	defer ts.Close()
 
-	c := Headless().SetDebuggerOutput(os.Stderr)
+	c := testHeadless()
 	defer c.Close()
 
 	ctx, cancel := context.WithTimeout(c, 10*time.Second)

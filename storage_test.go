@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -19,7 +18,7 @@ func TestStorage(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := Headless().SetDebuggerOutput(os.Stderr)
+	c := testHeadless()
 	defer c.Close()
 
 	ctx, cancel := context.WithTimeout(c, 10*time.Second)
