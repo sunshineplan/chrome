@@ -51,7 +51,7 @@ func Cookies(ctx context.Context, u *url.URL) (res []*http.Cookie) {
 	if err := chromedp.Run(
 		ctx,
 		chromedp.ActionFunc(func(ctx context.Context) (err error) {
-			cookies, err = network.GetCookies().WithUrls(urls).Do(ctx)
+			cookies, err = network.GetCookies().WithURLs(urls).Do(ctx)
 			return
 		}),
 	); err != nil {
