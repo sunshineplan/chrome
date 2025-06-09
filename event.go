@@ -62,35 +62,53 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 				if v.(*Event).Request.Request.Method == "HEAD" {
 					m.Delete(ev.RequestID)
 					go func() {
-						defer func() { recover() }()
-						ec <- v.(*Event)
+						select {
+						case ec <- v.(*Event):
+						case <-ctx.Done():
+							return
+						}
 					}()
 				}
 			}
 		case *network.EventLoadingFinished:
 			if v, ok := m.LoadAndDelete(ev.RequestID); ok {
 				go func() {
-					defer func() { recover() }()
-					ec <- v.(*Event)
+					select {
+					case ec <- v.(*Event):
+					case <-ctx.Done():
+						return
+					}
 				}()
 			}
 		}
 	})
 	go func() {
-		defer func() { recover() }()
-		for e := range ec {
-			if download {
-				if err := chromedp.Run(
-					ctx,
-					chromedp.ActionFunc(func(ctx context.Context) (err error) {
-						e.Bytes, err = network.GetResponseBody(e.Response.RequestID).Do(ctx)
-						return
-					}),
-				); err != nil {
-					slog.Debug(err.Error())
+		for {
+			select {
+			case e, ok := <-ec:
+				if !ok {
+					return
 				}
+				if download {
+					err := chromedp.Run(
+						ctx,
+						chromedp.ActionFunc(func(ctx context.Context) (err error) {
+							e.Bytes, err = network.GetResponseBody(e.Response.RequestID).Do(ctx)
+							return
+						}),
+					)
+					if err != nil {
+						slog.Debug(err.Error())
+					}
+				}
+				select {
+				case c <- e:
+				case <-ctx.Done():
+					return
+				}
+			case <-ctx.Done():
+				return
 			}
-			c <- e
 		}
 	}()
 

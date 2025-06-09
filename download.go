@@ -40,8 +40,11 @@ func ListenDownload(ctx context.Context, url any) <-chan *DownloadEvent {
 				v := v.(*DownloadEvent)
 				v.Progress = ev
 				go func() {
-					defer func() { recover() }()
-					c <- v
+					select {
+					case c <- v:
+					case <-ctx.Done():
+						return
+					}
 				}()
 			}
 		}
