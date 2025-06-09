@@ -44,9 +44,11 @@ func (e *Event) String() string {
 
 func ListenEvent(ctx context.Context, url any, method string, download bool) <-chan *Event {
 	c, ec := make(chan *Event, DefaultChannelBufferCapacity), make(chan *Event, DefaultChannelBufferCapacity)
+	done := make(chan struct{})
 	go func() {
 		<-ctx.Done()
 		close(ec)
+		<-done
 		close(c)
 	}()
 	var m sync.Map
@@ -83,6 +85,7 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 		}
 	})
 	go func() {
+		defer func() { close(done) }()
 		for {
 			select {
 			case e, ok := <-ec:
