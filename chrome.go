@@ -2,6 +2,7 @@ package chrome
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -48,15 +49,25 @@ func (c *Chrome) headless() *Chrome {
 }
 
 func UserAgent() (userAgent string) {
-	c := New("").headless().NoSandbox()
-	defer c.Close()
-	ctx, cancel := context.WithTimeout(c, time.Minute)
-	defer cancel()
-	if err := chromedp.Run(ctx, chromedp.Evaluate("navigator.userAgent", &userAgent)); err != nil {
-		if err == context.Canceled {
-			err = context.Cause(ctx)
+	var errs []error
+	for i := range 5 {
+		c := New("").headless().NoSandbox()
+		ctx, cancel := context.WithTimeout(c, 5*time.Second)
+		defer cancel()
+		if err := chromedp.Run(ctx, chromedp.Evaluate("navigator.userAgent", &userAgent)); err != nil {
+			if err == context.Canceled {
+				errs = append(errs, context.Cause(ctx))
+			}
 		}
-		panic("failed to get chrome useragent: " + err.Error())
+		c.Close()
+		if userAgent != "" {
+			break
+		} else if i < 4 {
+			time.Sleep(5 * time.Second)
+		}
+	}
+	if userAgent == "" {
+		panic("failed to get chrome useragent: " + errors.Join(errs...).Error())
 	}
 	userAgent = strings.ReplaceAll(userAgent, "Headless", "")
 	return
