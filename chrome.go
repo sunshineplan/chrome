@@ -17,12 +17,13 @@ import (
 )
 
 type Chrome struct {
-	url       string
-	useragent string
-	width     int
-	height    int
-	proxy     string
-	debugger  *log.Logger
+	url              string
+	useragent        string
+	width            int
+	height           int
+	proxy            string
+	enableExtensions bool
+	debugger         *log.Logger
 
 	flags   []chromedp.ExecAllocatorOption
 	ctxOpts []chromedp.ContextOption
@@ -125,6 +126,11 @@ func (c *Chrome) Proxy(proxy string) *Chrome {
 	return c
 }
 
+func (c *Chrome) EnableExtensions(enable bool) *Chrome {
+	c.enableExtensions = enable
+	return c
+}
+
 func (c *Chrome) AddFlags(flags ...chromedp.ExecAllocatorOption) *Chrome {
 	c.flags = append(c.flags, flags...)
 	return c
@@ -173,10 +179,9 @@ var DefaultExecAllocatorOptions = [...]chromedp.ExecAllocatorOption{
 	chromedp.Flag("disable-breakpad", true),
 	chromedp.Flag("disable-client-side-phishing-detection", true),
 	chromedp.Flag("disable-component-extensions-with-background-pages", true),
-	chromedp.Flag("disable-component-update", true),
+	chromedp.Flag("disable-crash-reporter", true),
 	chromedp.Flag("disable-default-apps", true),
 	chromedp.Flag("disable-dev-shm-usage", true),
-	chromedp.Flag("disable-extensions", true),
 	chromedp.Flag("disable-hang-monitor", true),
 	chromedp.Flag("disable-infobars", true),
 	chromedp.Flag("disable-ipc-flooding-protection", true),
@@ -187,8 +192,8 @@ var DefaultExecAllocatorOptions = [...]chromedp.ExecAllocatorOption{
 	chromedp.Flag("disable-sync", true),
 	chromedp.Flag("enable-automation", true),
 	chromedp.Flag("export-tagged-pdf", true),
-	chromedp.Flag("generate-pdf-document-outline", true),
 	// chromedp.Flag("force-color-profile", "srgb"),
+	chromedp.Flag("generate-pdf-document-outline", true),
 	chromedp.Flag("metrics-recording-only", true),
 	chromedp.Flag("no-first-run", true),
 	chromedp.Flag("password-store", "basic"),

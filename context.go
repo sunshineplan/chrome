@@ -46,6 +46,11 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, cont
 			if c.proxy != "" {
 				opts = append(opts, chromedp.ProxyServer(c.proxy))
 			}
+			if c.enableExtensions {
+				opts = append(opts, chromedp.Flag("enable-unsafe-extension-debugging", true))
+			} else {
+				opts = append(opts, chromedp.Flag("disable-extensions", true))
+			}
 			ctx, allocatorCancel = chromedp.NewExecAllocator(ctx, append(opts, c.flags...)...)
 		} else {
 			ctx, allocatorCancel = chromedp.NewRemoteAllocator(ctx, c.url)
