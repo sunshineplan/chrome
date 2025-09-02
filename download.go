@@ -31,7 +31,7 @@ func ListenDownload(ctx context.Context, url any) <-chan *DownloadEvent {
 	chromedp.ListenTarget(ctx, func(v any) {
 		switch ev := v.(type) {
 		case *browser.EventDownloadWillBegin:
-			if compare(ev.URL, url) {
+			if match(ev.URL, url) {
 				m.Store(ev.GUID, &DownloadEvent{ev, nil})
 			}
 		case *browser.EventDownloadProgress:

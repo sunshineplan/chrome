@@ -13,32 +13,43 @@ type (
 	URLBase      string
 )
 
-func compare(url string, value any) (res bool) {
+func (u URLHasPrefix) Match(s string) bool {
+	return strings.HasPrefix(s, string(u))
+}
+
+func (u URLHasSuffix) Match(s string) bool {
+	return strings.HasSuffix(s, string(u))
+}
+
+func (u URLContains) Match(s string) bool {
+	return strings.Contains(s, string(u))
+}
+
+func (u URLEqual) Match(s string) bool {
+	return s == string(u)
+}
+
+func (u URLBase) Match(s string) bool {
+	str := string(u)
+	if i := strings.Index(str, "?"); i > 0 {
+		str = str[:i]
+	}
+	return strings.HasPrefix(s, str)
+}
+
+func match(url string, value any) bool {
 	if value == nil || value == "" {
-		res = true
+		return true
 	} else {
 		switch v := value.(type) {
 		case string:
-			res = strings.HasPrefix(url, v)
-		case URLHasPrefix:
-			res = strings.HasPrefix(url, string(v))
-		case URLHasSuffix:
-			res = strings.HasSuffix(url, string(v))
-		case URLContains:
-			res = strings.Contains(url, string(v))
-		case URLEqual:
-			res = url == string(v)
-		case URLBase:
-			str := string(v)
-			if i := strings.Index(str, "?"); i > 0 {
-				str = str[:i]
-			}
-			res = strings.HasPrefix(url, str)
+			return strings.HasPrefix(url, v)
 		case *regexp.Regexp:
-			res = v.MatchString(url)
+			return v.MatchString(url)
+		case interface{ Match(string) bool }:
+			return v.Match(url)
 		default:
 			panic("unsupported url type")
 		}
 	}
-	return
 }

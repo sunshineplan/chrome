@@ -17,7 +17,7 @@ func TestCompare(t *testing.T) {
 		regexp.MustCompile(`^https:\/\/github.com\/sunshineplan\/chrome\?test=true$`),
 	}
 	for _, tc := range testcases {
-		if !compare(url, tc) {
+		if !match(url, tc) {
 			t.Errorf("want true, got false. Value: %v", tc)
 		}
 	}
