@@ -57,7 +57,7 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 	chromedp.ListenTarget(ctx, func(v any) {
 		switch ev := v.(type) {
 		case *network.EventRequestWillBeSent:
-			if compare(ev.Request.URL, url) && (method == "" || strings.EqualFold(method, ev.Request.Method)) {
+			if match(ev.Request.URL, url) && (method == "" || strings.EqualFold(method, ev.Request.Method)) {
 				m.Store(ev.RequestID, &Event{ev, nil, nil})
 			}
 		case *network.EventResponseReceived:
