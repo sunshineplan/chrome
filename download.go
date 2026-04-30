@@ -9,11 +9,13 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
+// DownloadEvent represents a download event with begin and progress information.
 type DownloadEvent struct {
-	Begin    *browser.EventDownloadWillBegin
-	Progress *browser.EventDownloadProgress
+	Begin    *browser.EventDownloadWillBegin // Event fired when download is about to begin
+	Progress *browser.EventDownloadProgress  // Event with download progress/completion info
 }
 
+// GUID returns the unique identifier for this download event.
 func (e *DownloadEvent) GUID() string {
 	if e.Begin == nil {
 		panic("pointer is nil")
@@ -21,6 +23,8 @@ func (e *DownloadEvent) GUID() string {
 	return e.Begin.GUID
 }
 
+// ListenDownload listens for download events matching the provided URL pattern.
+// Returns a channel that receives completed DownloadEvents.
 func ListenDownload(ctx context.Context, url any) <-chan *DownloadEvent {
 	c := make(chan *DownloadEvent, DefaultChannelBufferCapacity)
 	go func() {
@@ -52,12 +56,15 @@ func ListenDownload(ctx context.Context, url any) <-chan *DownloadEvent {
 	return c
 }
 
+// SetDownload configures the browser to save downloads to the specified path.
 func SetDownload(ctx context.Context, path string) error {
 	return chromedp.Run(ctx, browser.SetDownloadBehavior(browser.SetDownloadBehaviorBehaviorAllowAndName).
 		WithDownloadPath(path).
 		WithEventsEnabled(true))
 }
 
+// Download navigates to the given URL and waits for a download matching the provided pattern.
+// It returns the completed DownloadEvent or an error.
 func Download(ctx context.Context, url string, match any) (*DownloadEvent, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -74,14 +81,17 @@ func Download(ctx context.Context, url string, match any) (*DownloadEvent, error
 	}
 }
 
+// ListenDownload listens for downloads from the browser instance.
 func (c *Chrome) ListenDownload(url any) <-chan *DownloadEvent {
 	return ListenDownload(c, url)
 }
 
+// SetDownload configures this Chrome instance to save downloads to the specified path.
 func (c *Chrome) SetDownload(path string) error {
 	return SetDownload(c, path)
 }
 
+// Download navigates to a URL and waits for a download from this Chrome instance.
 func (c *Chrome) Download(url string, match any) (*DownloadEvent, error) {
 	return Download(c, url, match)
 }
