@@ -11,6 +11,7 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
+// SetCookies sets cookies in the browser context for a given URL.
 func SetCookies(ctx context.Context, u *url.URL, cookies []*http.Cookie) {
 	var actions []chromedp.Action
 	for _, i := range cookies {
@@ -41,6 +42,7 @@ func SetCookies(ctx context.Context, u *url.URL, cookies []*http.Cookie) {
 	}
 }
 
+// Cookies retrieves cookies from the browser context for a given URL.
 func Cookies(ctx context.Context, u *url.URL) (res []*http.Cookie) {
 	var urls []string
 	if u != nil {
@@ -63,12 +65,15 @@ func Cookies(ctx context.Context, u *url.URL) (res []*http.Cookie) {
 	return
 }
 
+// Ensure Chrome implements http.CookieJar interface.
 var _ http.CookieJar = &Chrome{}
 
+// SetCookies sets cookies in the browser for the given URL.
 func (c *Chrome) SetCookies(u *url.URL, cookies []*http.Cookie) {
 	SetCookies(c, u, cookies)
 }
 
+// Cookies retrieves cookies from the browser for the given URL.
 func (c *Chrome) Cookies(u *url.URL) []*http.Cookie {
 	return Cookies(c, u)
 }

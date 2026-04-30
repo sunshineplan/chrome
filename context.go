@@ -7,28 +7,36 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
+// Ensure Chrome implements context.Context interface
 var _ context.Context = &Chrome{}
 
+// Deadline returns the browser context's deadline.
 func (c *Chrome) Deadline() (time.Time, bool) {
 	ctx, _, _, _ := c.context(context.Background(), false)
 	return ctx.Deadline()
 }
 
+// Done returns a channel that is closed when the browser context is canceled.
 func (c *Chrome) Done() <-chan struct{} {
 	ctx, _, _, _ := c.context(context.Background(), false)
 	return ctx.Done()
 }
 
+// Err returns the error that caused the browser context to be canceled.
 func (c *Chrome) Err() error {
 	ctx, _, _, _ := c.context(context.Background(), false)
 	return ctx.Err()
 }
 
+// Value retrieves a value from the browser context.
 func (c *Chrome) Value(key any) any {
 	ctx, _, _, _ := c.context(context.Background(), false)
 	return ctx.Value(key)
 }
 
+// context initializes or returns the existing browser context.
+// It handles both local (exec allocator) and remote browser instances.
+// The reset parameter determines whether to create a new context if the current one has ended.
 func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, context.CancelFunc, bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -82,6 +90,8 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, cont
 	return c.ctx, nil, false, nil
 }
 
+// newContext creates a new browser context with optional timeout.
+// It reuses the existing browser session and creates a new context within it.
 func (c *Chrome) newContext(timeout time.Duration) (ctx context.Context, cancel context.CancelFunc, err error) {
 	if timeout > 0 {
 		ctx, cancel = context.WithTimeout(context.Background(), timeout)
@@ -113,10 +123,12 @@ func (c *Chrome) newContext(timeout time.Duration) (ctx context.Context, cancel 
 	return
 }
 
+// NewContext creates a new browser context without timeout.
 func (c *Chrome) NewContext() (context.Context, context.CancelFunc, error) {
 	return c.newContext(0)
 }
 
+// WithTimeout creates a new browser context with the specified timeout duration.
 func (c *Chrome) WithTimeout(timeout time.Duration) (context.Context, context.CancelFunc, error) {
 	return c.newContext(timeout)
 }
