@@ -32,17 +32,27 @@ func ListenDownload(ctx context.Context, url any) <-chan *DownloadEvent {
 		close(c)
 	}()
 	var m sync.Map
-	chromedp.ListenTarget(ctx, func(v any) {
-		switch ev := v.(type) {
-		case *browser.EventDownloadWillBegin:
-			if match(ev.URL, url) {
-				m.Store(ev.GUID, &DownloadEvent{ev, nil})
+	begin := chromedp.Events(ctx, browser.DownloadWillBegin)
+	go func() {
+		for ev, err := range begin {
+			if err != nil {
+				return
 			}
-		case *browser.EventDownloadProgress:
+			if match(ev.URL, url) {
+				m.Store(ev.GUID, &DownloadEvent{&ev, nil})
+			}
+		}
+	}()
+	progress := chromedp.Events(ctx, browser.DownloadProgress)
+	go func() {
+		for ev, err := range progress {
+			if err != nil {
+				return
+			}
 			if v, ok := m.Load(ev.GUID); ok && ev.State == browser.DownloadProgressStateCompleted {
 				m.Delete(ev.GUID)
 				v := v.(*DownloadEvent)
-				v.Progress = ev
+				v.Progress = &ev
 				go func() {
 					select {
 					case c <- v:
@@ -52,15 +62,22 @@ func ListenDownload(ctx context.Context, url any) <-chan *DownloadEvent {
 				}()
 			}
 		}
-	})
+	}()
 	return c
 }
 
 // SetDownload configures the browser to save downloads to the specified path.
-func SetDownload(ctx context.Context, path string) error {
-	return chromedp.Run(ctx, browser.SetDownloadBehavior(browser.SetDownloadBehaviorBehaviorAllowAndName).
-		WithDownloadPath(path).
-		WithEventsEnabled(true))
+func SetDownload(ctx context.Context, path string) (err error) {
+	_, err = chromedp.Call(
+		ctx,
+		browser.SetDownloadBehavior,
+		browser.SetDownloadBehaviorParams{
+			Behavior:      browser.SetDownloadBehaviorBehaviorAllowAndName,
+			DownloadPath:  path,
+			EventsEnabled: new(true),
+		},
+	)
+	return err
 }
 
 // Download navigates to the given URL and waits for a download matching the provided pattern.
@@ -70,7 +87,7 @@ func Download(ctx context.Context, url string, match any) (*DownloadEvent, error
 	defer cancel()
 
 	c := ListenDownload(ctx, match)
-	if err := chromedp.Run(ctx, chromedp.Navigate(url)); err != nil && !strings.Contains(err.Error(), "net::ERR_ABORTED") {
+	if err := chromedp.Do(ctx, chromedp.Navigate(url)); err != nil && !strings.Contains(err.Error(), "net::ERR_ABORTED") {
 		return nil, err
 	}
 	select {

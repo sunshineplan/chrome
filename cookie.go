@@ -13,54 +13,52 @@ import (
 
 // SetCookies sets cookies in the browser context for a given URL.
 func SetCookies(ctx context.Context, u *url.URL, cookies []*http.Cookie) {
-	var actions []chromedp.Action
 	for _, i := range cookies {
-		params := network.SetCookie(i.Name, i.Value).
-			WithURL(u.String()).
-			WithPath(i.Path).
-			WithDomain(i.Domain).
-			WithSecure(i.Secure).
-			WithHTTPOnly(i.HttpOnly)
+		param := network.SetCookieParams{
+			Name:     i.Name,
+			Value:    i.Value,
+			URL:      u.String(),
+			Path:     i.Path,
+			Domain:   i.Domain,
+			Secure:   &i.Secure,
+			HTTPOnly: &i.HttpOnly,
+		}
 		if i.MaxAge != 0 {
 			expires := time.Now().Add(time.Duration(i.MaxAge) * time.Second)
-			params.WithExpires((*cdp.TimeSinceEpoch)(&expires))
+			param.Expires = cdp.TimeSinceEpoch(expires.Unix())
 		} else if !i.Expires.IsZero() {
-			params.WithExpires((*cdp.TimeSinceEpoch)(&i.Expires))
+			param.Expires = cdp.TimeSinceEpoch(i.Expires.Unix())
 		}
 		switch i.SameSite {
 		case http.SameSiteLaxMode:
-			params.WithSameSite(network.CookieSameSiteLax)
+			param.SameSite = network.CookieSameSiteLax
 		case http.SameSiteStrictMode:
-			params.WithSameSite(network.CookieSameSiteStrict)
+			param.SameSite = network.CookieSameSiteStrict
 		case http.SameSiteNoneMode:
-			params.WithSameSite(network.CookieSameSiteNone)
+			param.SameSite = network.CookieSameSiteNone
 		}
-		actions = append(actions, params)
-	}
-	if err := chromedp.Run(ctx, actions...); err != nil {
-		panic(err)
+		if _, err := chromedp.Call(ctx, network.SetCookie, param); err != nil {
+			panic(err)
+		}
 	}
 }
 
 // Cookies retrieves cookies from the browser context for a given URL.
-func Cookies(ctx context.Context, u *url.URL) (res []*http.Cookie) {
+func Cookies(ctx context.Context, u *url.URL) (cookies []*http.Cookie) {
 	var urls []string
 	if u != nil {
 		urls = append(urls, u.String())
 	}
-
-	var cookies []*network.Cookie
-	if err := chromedp.Run(
+	res, err := chromedp.Call(
 		ctx,
-		chromedp.ActionFunc(func(ctx context.Context) (err error) {
-			cookies, err = network.GetCookies().WithURLs(urls).Do(ctx)
-			return
-		}),
-	); err != nil {
+		network.GetCookies,
+		network.GetCookiesParams{URLs: urls},
+	)
+	if err != nil {
 		panic(err)
 	}
-	for _, i := range cookies {
-		res = append(res, &http.Cookie{Name: i.Name, Value: i.Value})
+	for _, i := range res.Cookies {
+		cookies = append(cookies, &http.Cookie{Name: i.Name, Value: i.Value})
 	}
 	return
 }

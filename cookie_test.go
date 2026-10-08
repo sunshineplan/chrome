@@ -31,7 +31,7 @@ func TestCookie(t *testing.T) {
 
 	u, _ := url.Parse(ts.URL)
 	SetCookies(ctx, u, []*http.Cookie{{Name: "test", Value: "value"}})
-	if err := chromedp.Run(ctx, chromedp.Navigate(ts.URL)); err != nil {
+	if err := chromedp.Do(ctx, chromedp.Navigate(ts.URL)); err != nil {
 		t.Fatal(err)
 	}
 	var found bool
