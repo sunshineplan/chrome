@@ -3,7 +3,6 @@ package chrome
 import (
 	"context"
 
-	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/fetch"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
@@ -12,20 +11,32 @@ import (
 // EnableFetch enables request/response interception using the Fetch API.
 // The provided function is called for each paused request and should return true to allow it or false to block it.
 func EnableFetch(ctx context.Context, fn func(*fetch.EventRequestPaused) bool) error {
-	chromedp.ListenTarget(ctx, func(v any) {
-		switch ev := v.(type) {
-		case *fetch.EventRequestPaused:
-			go func() {
-				ctx := cdp.WithExecutor(ctx, chromedp.FromContext(ctx).Target)
-				if fn(ev) {
-					fetch.ContinueRequest(ev.RequestID).Do(ctx)
-				} else {
-					fetch.FailRequest(ev.RequestID, network.ErrorReasonBlockedByClient).Do(ctx)
-				}
-			}()
+	paused := chromedp.Events(ctx, fetch.RequestPaused)
+	go func() {
+		for ev, err := range paused {
+			if err != nil {
+				return
+			}
+			if fn(&ev) {
+				chromedp.Call(
+					ctx,
+					fetch.ContinueRequest,
+					fetch.ContinueRequestParams{RequestID: ev.RequestID},
+				)
+			} else {
+				chromedp.Call(
+					ctx,
+					fetch.FailRequest,
+					fetch.FailRequestParams{
+						RequestID:   ev.RequestID,
+						ErrorReason: network.ErrorReasonBlockedByClient,
+					},
+				)
+			}
 		}
-	})
-	return chromedp.Run(ctx, fetch.Enable())
+	}()
+	_, err := chromedp.Call(ctx, fetch.Enable, fetch.EnableParams{})
+	return err
 }
 
 // EnableFetch enables request/response interception on this Chrome instance.

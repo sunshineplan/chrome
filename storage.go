@@ -8,20 +8,30 @@ import (
 )
 
 // SetStorageItem sets a key-value pair in the DOM storage (localStorage/sessionStorage).
-func SetStorageItem(ctx context.Context, storageID *domstorage.StorageID, key, value string) error {
-	return chromedp.Run(ctx, domstorage.SetDOMStorageItem(storageID, key, value))
+func SetStorageItem(ctx context.Context, storageID *domstorage.StorageID, key, value string) (err error) {
+	_, err = chromedp.Call(
+		ctx,
+		domstorage.SetDOMStorageItem,
+		domstorage.SetDOMStorageItemParams{
+			StorageID: storageID,
+			Key:       key,
+			Value:     value,
+		},
+	)
+	return
 }
 
 // StorageItems retrieves all key-value pairs from the DOM storage.
-func StorageItems(ctx context.Context, storageID *domstorage.StorageID) (res []domstorage.Item, err error) {
-	err = chromedp.Run(
+func StorageItems(ctx context.Context, storageID *domstorage.StorageID) ([]domstorage.Item, error) {
+	res, err := chromedp.Call(
 		ctx,
-		chromedp.ActionFunc(func(ctx context.Context) (err error) {
-			res, err = domstorage.GetDOMStorageItems(storageID).Do(ctx)
-			return
-		}),
+		domstorage.GetDOMStorageItems,
+		domstorage.GetDOMStorageItemsParams{StorageID: storageID},
 	)
-	return
+	if err != nil {
+		return nil, err
+	}
+	return res.Entries, nil
 }
 
 // SetStorageItem sets a storage item in this Chrome instance.

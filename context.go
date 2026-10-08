@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/chromedp/chromedp"
+	"github.com/chromedp/chromedp/remote"
 )
 
 // Ensure Chrome implements context.Context interface
@@ -61,7 +62,7 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, cont
 			}
 			ctx, allocatorCancel = chromedp.NewExecAllocator(ctx, append(opts, c.flags...)...)
 		} else {
-			ctx, allocatorCancel = chromedp.NewRemoteAllocator(ctx, c.url)
+			ctx, allocatorCancel = remote.NewAllocator(ctx, c.url)
 		}
 		var ctxCancel context.CancelFunc
 		c.ctx, ctxCancel = chromedp.NewContext(ctx, c.ctxOpts...)
@@ -79,7 +80,7 @@ func (c *Chrome) context(ctx context.Context, reset bool) (context.Context, cont
 			cancel()
 			close(c.done)
 		}()
-		if err := chromedp.Run(c.ctx, c.actions...); err != nil {
+		if err := chromedp.Do(c.ctx, c.actions...); err != nil {
 			cancelCause(err)
 			ctxCancel()
 			allocatorCancel()
@@ -113,7 +114,7 @@ func (c *Chrome) newContext(timeout time.Duration) (ctx context.Context, cancel 
 		} else {
 			ctx, cancel = chromedp.NewContext(c.ctx, c.ctxOpts...)
 		}
-		if err = chromedp.Run(ctx, c.actions...); err != nil {
+		if err = chromedp.Do(ctx, c.actions...); err != nil {
 			cancel()
 			return nil, nil, err
 		}

@@ -61,15 +61,25 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 		close(c)
 	}()
 	var m sync.Map
-	chromedp.ListenTarget(ctx, func(v any) {
-		switch ev := v.(type) {
-		case *network.EventRequestWillBeSent:
-			if match(ev.Request.URL, url) && (method == "" || strings.EqualFold(method, ev.Request.Method)) {
-				m.Store(ev.RequestID, &Event{ev, nil, nil})
+	sent := chromedp.Events(ctx, network.RequestWillBeSent)
+	go func() {
+		for ev, err := range sent {
+			if err != nil {
+				return
 			}
-		case *network.EventResponseReceived:
+			if match(ev.Request.URL, url) && (method == "" || strings.EqualFold(method, ev.Request.Method)) {
+				m.Store(ev.RequestID, &Event{&ev, nil, nil})
+			}
+		}
+	}()
+	received := chromedp.Events(ctx, network.ResponseReceived)
+	go func() {
+		for ev, err := range received {
+			if err != nil {
+				return
+			}
 			if v, ok := m.Load(ev.RequestID); ok {
-				v.(*Event).Response = ev
+				v.(*Event).Response = &ev
 				if v.(*Event).Request.Request.Method == "HEAD" {
 					m.Delete(ev.RequestID)
 					wg.Add(1)
@@ -83,7 +93,14 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 					}()
 				}
 			}
-		case *network.EventLoadingFinished:
+		}
+	}()
+	finished := chromedp.Events(ctx, network.LoadingFinished)
+	go func() {
+		for ev, err := range finished {
+			if err != nil {
+				return
+			}
 			if v, ok := m.LoadAndDelete(ev.RequestID); ok {
 				wg.Add(1)
 				go func() {
@@ -96,7 +113,7 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 				}()
 			}
 		}
-	})
+	}()
 	go func() {
 		defer func() { close(done) }()
 		for {
@@ -106,15 +123,14 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 					return
 				}
 				if download {
-					err := chromedp.Run(
+					if res, err := chromedp.Call(
 						ctx,
-						chromedp.ActionFunc(func(ctx context.Context) (err error) {
-							e.Bytes, err = network.GetResponseBody(e.Response.RequestID).Do(ctx)
-							return
-						}),
-					)
-					if err != nil {
+						network.GetResponseBody,
+						network.GetResponseBodyParams{RequestID: e.Response.RequestID},
+					); err != nil {
 						slog.Debug(err.Error())
+					} else {
+						e.Bytes = res.Body
 					}
 				}
 				select {
@@ -127,7 +143,6 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 			}
 		}
 	}()
-
 	return c
 }
 
@@ -148,35 +163,31 @@ func ListenScriptEvent(
 			rand.Read(b)
 			variable = "chrome" + hex.EncodeToString(b)
 		}
-		if err := chromedp.Run(ctx, chromedp.Evaluate(fmt.Sprintln("let", variable), nil)); err != nil {
+		if err := chromedp.Do(ctx, chromedp.Evaluate[chromedp.Void](fmt.Sprintln("let", variable))); err != nil {
 			return "", nil, err
 		}
 		expression = fmt.Sprintf(script, variable)
 	}
-
 	c := ListenEvent(ctx, url, method, download)
-	if err := chromedp.Run(ctx, chromedp.Evaluate(expression, nil)); err != nil {
+	if err := chromedp.Do(ctx, chromedp.Evaluate[chromedp.Void](expression)); err != nil {
 		return "", nil, err
 	}
-
 	return variable, c, nil
 }
 
 // ListenScript evaluates a script and waits for the first network event, then retrieves the script result.
-func ListenScript(ctx context.Context, script string, url any, method, variable string, result any) error {
+func ListenScript[T any](ctx context.Context, script string, url any, method, variable string) (T, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-
 	variable, c, err := ListenScriptEvent(ctx, script, url, method, variable, false)
 	if err != nil {
-		return err
+		return *new(T), err
 	}
-
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return *new(T), ctx.Err()
 	case <-c:
-		return chromedp.Run(ctx, chromedp.Evaluate(variable, &result))
+		return chromedp.Run(ctx, chromedp.Evaluate[T](variable))
 	}
 }
 
@@ -191,6 +202,6 @@ func (c *Chrome) ListenScriptEvent(script string, url any, method, variable stri
 }
 
 // ListenScript evaluates a script on this Chrome instance and waits for network events.
-func (c *Chrome) ListenScript(script string, url any, method, variable string, result any) error {
-	return ListenScript(c, script, url, method, variable, result)
+func (c *Chrome) ListenScript[T any](script string, url any, method, variable string) (T, error) {
+	return ListenScript[T](c, script, url, method, variable)
 }

@@ -24,7 +24,7 @@ func TestStorage(t *testing.T) {
 	ctx, cancel := context.WithTimeout(c, 10*time.Second)
 	defer cancel()
 
-	if err := chromedp.Run(ctx, chromedp.Navigate(ts.URL)); err != nil {
+	if err := chromedp.Do(ctx, chromedp.Navigate(ts.URL)); err != nil {
 		t.Fatal(err)
 	}
 

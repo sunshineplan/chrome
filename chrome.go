@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
@@ -29,9 +30,9 @@ type Chrome struct {
 	enableExtensions bool        // Whether to enable Chrome extensions
 	debugger         *log.Logger // Logger for debug output
 
-	flags   []chromedp.ExecAllocatorOption // Chrome execution flags
-	ctxOpts []chromedp.ContextOption       // Context options for chromedp
-	actions []chromedp.Action              // Actions to execute on browser startup
+	flags   []chromedp.ExecAllocatorOption   // Chrome execution flags
+	ctxOpts []chromedp.ContextOption         // Context options for chromedp
+	actions []chromedp.Action[chromedp.Void] // Actions to execute on browser startup
 
 	mu sync.Mutex // Mutex for thread-safe operations
 
@@ -63,7 +64,9 @@ func UserAgent() (userAgent string) {
 		c := New("").headless().NoSandbox()
 		ctx, cancel := context.WithTimeout(c, 5*time.Second)
 		defer cancel()
-		if err := chromedp.Run(ctx, chromedp.Evaluate("navigator.userAgent", &userAgent)); err != nil {
+		var err error
+		userAgent, err = chromedp.Run(ctx, chromedp.Evaluate[string]("navigator.userAgent"))
+		if err != nil {
 			if err == context.Canceled {
 				errs = append(errs, context.Cause(ctx))
 			}
@@ -205,7 +208,7 @@ func (c *Chrome) AddContextOptions(opts ...chromedp.ContextOption) *Chrome {
 }
 
 // AddActions appends chromedp actions to be executed on browser startup.
-func (c *Chrome) AddActions(actions ...chromedp.Action) *Chrome {
+func (c *Chrome) AddActions(actions ...chromedp.Action[chromedp.Void]) *Chrome {
 	c.actions = append(c.actions, actions...)
 	return c
 }
@@ -245,9 +248,14 @@ var DefaultExecAllocatorOptions = [...]chromedp.ExecAllocatorOption{
 	chromedp.Flag("start-maximized", true),
 }
 
-// Run executes the provided chromedp actions in the browser context.
-func (c *Chrome) Run(actions ...chromedp.Action) error {
-	return chromedp.Run(c, actions...)
+// Do executes the provided chromedp actions in the browser context.
+func (c *Chrome) Do(action ...chromedp.Action[chromedp.Void]) error {
+	return chromedp.Do(c, action...)
+}
+
+// Run executes the provided chromedp action in the browser context.
+func (c *Chrome) Run[T any](action chromedp.Action[T]) (T, error) {
+	return chromedp.Run(c, action)
 }
 
 // WaitNewTarget waits for a new target (tab/window) matching the provided filter function.
@@ -256,9 +264,14 @@ func (c *Chrome) WaitNewTarget(fn func(*target.Info) bool) <-chan target.ID {
 }
 
 // AddScriptToEvaluateOnNewDocument adds a script that will be evaluated on every new document in every frame.
-func AddScriptToEvaluateOnNewDocument(script string) chromedp.Action {
-	return chromedp.ActionFunc(func(ctx context.Context) (err error) {
-		_, err = page.AddScriptToEvaluateOnNewDocument(script).Do(ctx)
-		return
-	})
+func AddScriptToEvaluateOnNewDocument(script string) chromedp.Action[chromedp.Void] {
+	return func(ctx context.Context, t *chromedp.Target) (chromedp.Void, error) {
+		_, err := cdp.Call(
+			ctx,
+			t,
+			page.AddScriptToEvaluateOnNewDocument,
+			page.AddScriptToEvaluateOnNewDocumentParams{Source: script},
+		)
+		return struct{}{}, err
+	}
 }
