@@ -258,6 +258,11 @@ func (c *Chrome) Run[T any](action chromedp.Action[T]) (T, error) {
 	return chromedp.Run(c, action)
 }
 
+// Call executes a chromedp command with the provided parameters and returns the result.
+func (c *Chrome) Call[P, R any](cmd cdp.Command[P, R], params P) (R, error) {
+	return chromedp.Call(c, cmd, params)
+}
+
 // WaitNewTarget waits for a new target (tab/window) matching the provided filter function.
 func (c *Chrome) WaitNewTarget(fn func(*target.Info) bool) <-chan target.ID {
 	return chromedp.WaitNewTarget(c, fn)

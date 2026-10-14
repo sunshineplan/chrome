@@ -24,6 +24,7 @@ type Event struct {
 	Request  *network.EventRequestWillBeSent // Request information
 	Response *network.EventResponseReceived  // Response information
 	Bytes    []byte                          // Response body content
+	finished bool                            // Indicates if the event has finished processing
 }
 
 // Header returns the HTTP headers from the event's response.
@@ -62,17 +63,18 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 	}()
 	var m sync.Map
 	sent := chromedp.Events(ctx, network.RequestWillBeSent)
+	received := chromedp.Events(ctx, network.ResponseReceived)
+	finished := chromedp.Events(ctx, network.LoadingFinished)
 	go func() {
 		for ev, err := range sent {
 			if err != nil {
 				return
 			}
 			if match(ev.Request.URL, url) && (method == "" || strings.EqualFold(method, ev.Request.Method)) {
-				m.Store(ev.RequestID, &Event{&ev, nil, nil})
+				m.Store(ev.RequestID, &Event{&ev, nil, nil, false})
 			}
 		}
 	}()
-	received := chromedp.Events(ctx, network.ResponseReceived)
 	go func() {
 		for ev, err := range received {
 			if err != nil {
@@ -80,37 +82,36 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 			}
 			if v, ok := m.Load(ev.RequestID); ok {
 				v.(*Event).Response = &ev
-				if v.(*Event).Request.Request.Method == "HEAD" {
+				if e := v.(*Event); e.Request.Request.Method == "HEAD" || e.finished {
 					m.Delete(ev.RequestID)
-					wg.Add(1)
-					go func() {
-						defer wg.Done()
+					wg.Go(func() {
 						select {
-						case ec <- v.(*Event):
+						case ec <- e:
 						case <-ctx.Done():
 							return
 						}
-					}()
+					})
 				}
 			}
 		}
 	}()
-	finished := chromedp.Events(ctx, network.LoadingFinished)
 	go func() {
 		for ev, err := range finished {
 			if err != nil {
 				return
 			}
-			if v, ok := m.LoadAndDelete(ev.RequestID); ok {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					select {
-					case ec <- v.(*Event):
-					case <-ctx.Done():
-						return
-					}
-				}()
+			if v, ok := m.Load(ev.RequestID); ok {
+				v.(*Event).finished = true
+				if e := v.(*Event); e.Response != nil {
+					m.Delete(ev.RequestID)
+					wg.Go(func() {
+						select {
+						case ec <- e:
+						case <-ctx.Done():
+							return
+						}
+					})
+				}
 			}
 		}
 	}()
