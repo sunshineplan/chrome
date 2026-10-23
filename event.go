@@ -21,6 +21,7 @@ var DefaultChannelBufferCapacity = 8
 
 // Event represents a network event with request, response, and response body.
 type Event struct {
+	mu       *sync.Mutex
 	Request  *network.EventRequestWillBeSent // Request information
 	Response *network.EventResponseReceived  // Response information
 	Bytes    []byte                          // Response body content
@@ -71,7 +72,7 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 				return
 			}
 			if match(ev.Request.URL, url) && (method == "" || strings.EqualFold(method, ev.Request.Method)) {
-				m.Store(ev.RequestID, &Event{&ev, nil, nil, false})
+				m.Store(ev.RequestID, &Event{new(sync.Mutex), &ev, nil, nil, false})
 			}
 		}
 	}()
@@ -81,8 +82,11 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 				return
 			}
 			if v, ok := m.Load(ev.RequestID); ok {
-				v.(*Event).Response = &ev
-				if e := v.(*Event); e.Request.Request.Method == "HEAD" || e.finished {
+				e := v.(*Event)
+				e.mu.Lock()
+				e.Response = &ev
+				if e.Request.Request.Method == "HEAD" || e.finished {
+					e.mu.Unlock()
 					m.Delete(ev.RequestID)
 					wg.Go(func() {
 						select {
@@ -91,7 +95,9 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 							return
 						}
 					})
+					continue
 				}
+				e.mu.Unlock()
 			}
 		}
 	}()
@@ -101,8 +107,11 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 				return
 			}
 			if v, ok := m.Load(ev.RequestID); ok {
-				v.(*Event).finished = true
-				if e := v.(*Event); e.Response != nil {
+				e := v.(*Event)
+				e.mu.Lock()
+				e.finished = true
+				if e.Response != nil {
+					e.mu.Unlock()
 					m.Delete(ev.RequestID)
 					wg.Go(func() {
 						select {
@@ -111,7 +120,9 @@ func ListenEvent(ctx context.Context, url any, method string, download bool) <-c
 							return
 						}
 					})
+					continue
 				}
+				e.mu.Unlock()
 			}
 		}
 	}()

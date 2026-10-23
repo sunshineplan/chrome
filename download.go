@@ -33,6 +33,7 @@ func ListenDownload(ctx context.Context, url any) <-chan *DownloadEvent {
 	}()
 	var m sync.Map
 	begin := chromedp.Events(ctx, browser.DownloadWillBegin)
+	progress := chromedp.Events(ctx, browser.DownloadProgress)
 	go func() {
 		for ev, err := range begin {
 			if err != nil {
@@ -43,19 +44,18 @@ func ListenDownload(ctx context.Context, url any) <-chan *DownloadEvent {
 			}
 		}
 	}()
-	progress := chromedp.Events(ctx, browser.DownloadProgress)
 	go func() {
 		for ev, err := range progress {
 			if err != nil {
 				return
 			}
 			if v, ok := m.Load(ev.GUID); ok && ev.State == browser.DownloadProgressStateCompleted {
+				de := v.(*DownloadEvent)
+				de.Progress = &ev
 				m.Delete(ev.GUID)
-				v := v.(*DownloadEvent)
-				v.Progress = &ev
 				go func() {
 					select {
-					case c <- v:
+					case c <- de:
 					case <-ctx.Done():
 						return
 					}
