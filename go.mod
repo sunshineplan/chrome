@@ -3,7 +3,7 @@ module github.com/sunshineplan/chrome
 go 1.27
 
 require (
-	github.com/chromedp/cdproto v0.160.7
+	github.com/chromedp/cdproto v0.160.8
 	github.com/chromedp/chromedp v0.24.0
 )
 
